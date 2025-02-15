@@ -1,0 +1,20 @@
+{
+  "auth": {
+    "access_token": "",
+    "callback": "http://laksa.io/callback",
+    "client_id": "CLIENT_ID",
+    "client_secret": "CLIENT_SECRET"
+  },
+  "id": "DOT_SLASH_DOT_LAKSA_SLASH_CONFIG_DOT_JSON",
+  "sites": {
+    "matthewsinclair_com": {
+      "root": "matthewsinclair.com"
+    },
+    "mrsfaff_com": {
+      "root": "mrsfaff.com"
+    },
+    "gyreandgymble_com": {
+      "root": "gyreandgymble.com"
+    }
+  }
+}
