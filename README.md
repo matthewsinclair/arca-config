@@ -1,6 +1,6 @@
-# ArcaConfig
+# Arca Config
 
-**TODO: Add description**
+Arca Config is a simple file-based configuration utility for Elixir projects. 
 
 ## Installation
 
