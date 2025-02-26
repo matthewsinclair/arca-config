@@ -4,6 +4,14 @@ verblock: "2024-05-17:v0.1: Matthew Sinclair - Initial version"
 
 # Arca Config Development Journal
 
+##### 20250226
+
+Integrated with Claude Code.
+
+**Logs**
+
+* dab86f0 - (HEAD -> main, upstream/main, local/main) Added Claude Code (3 seconds ago) <Matthew Sinclair>
+
 ##### 20250127
 
 Resuscitated to help with ICPZero.
