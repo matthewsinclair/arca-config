@@ -18,6 +18,7 @@ defmodule Arca.Config.Cfg do
       ...> cfg["id"]
       "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON"
   """
+  @spec load(String.t()) :: {:ok, map()} | {:error, String.t()}
   def load(config_file \\ config_file()) do
     config_file
     |> Path.expand()
@@ -51,6 +52,7 @@ defmodule Arca.Config.Cfg do
       iex> Arca.Config.Cfg.config_file()
       ".arca/config.json"
   """
+  @spec config_file() :: String.t()
   def config_file do
     Path.join(config_pathname(), config_filename())
   end
@@ -62,9 +64,10 @@ defmodule Arca.Config.Cfg do
       iex> Arca.Config.Cfg.config_pathname()
       ".arca"
   """
+  @spec config_pathname() :: String.t()
   def config_pathname do
     System.get_env(@config_path_env_var) ||
-      Application.get_env(:arca_cli, :config_path) ||
+      Application.get_env(:arca_config, :config_path) ||
       default_config_path()
   end
 
@@ -75,6 +78,7 @@ defmodule Arca.Config.Cfg do
       iex> Arca.Config.Cfg.config_data_pathname()
       ".arca/data/links"
   """
+  @spec config_data_pathname() :: String.t()
   def config_data_pathname do
     Path.join([config_pathname(), "data", "links"])
   end
@@ -86,9 +90,10 @@ defmodule Arca.Config.Cfg do
       iex> Arca.Config.Cfg.config_filename()
       "config.json"
   """
+  @spec config_filename() :: String.t()
   def config_filename do
     System.get_env(@config_file_env_var) ||
-      Application.get_env(:arca_cli, :config_file) ||
+      Application.get_env(:arca_config, :config_file) ||
       default_config_file()
   end
 
@@ -103,6 +108,7 @@ defmodule Arca.Config.Cfg do
       iex> Arca.Config.Cfg.inspect_property("id")
       {:ok, "ID"}
   """
+  @spec inspect_property(String.t() | atom()) :: {:ok, any()} | {:error, String.t()}
   def inspect_property(name) do
     with {:ok, config} <- load(),
          value when not is_nil(value) <- Map.get(config, name) do
@@ -124,6 +130,7 @@ defmodule Arca.Config.Cfg do
       iex> Arca.Config.Cfg.get("database.host")
       {:ok, "localhost"}
   """
+  @spec get(String.t() | atom()) :: {:ok, any()} | {:error, String.t()}
   def get(key) do
     with {:ok, config} <- load() do
       key
@@ -156,6 +163,7 @@ defmodule Arca.Config.Cfg do
   ## Raises
     - `RuntimeError`: If the key is not found in the configuration.
   """
+  @spec get!(String.t() | atom()) :: any() | no_return()
   def get!(key) do
     case get(key) do
       {:ok, value} -> value
@@ -174,6 +182,7 @@ defmodule Arca.Config.Cfg do
       iex> Arca.Config.Cfg.put("database.host", "127.0.0.1")
       {:ok, "127.0.0.1"}
   """
+  @spec put(String.t() | atom(), any()) :: {:ok, any()} | {:error, String.t()}
   def put(key, value) do
     with {:ok, config} <- load() do
       keys = String.split(to_string(key), ".")
@@ -202,6 +211,7 @@ defmodule Arca.Config.Cfg do
   ## Raises
     - `RuntimeError`: If the update operation fails.
   """
+  @spec put!(String.t() | atom(), any()) :: any() | no_return()
   def put!(key, value) do
     case put(key, value) do
       {:ok, value} -> value
@@ -229,10 +239,10 @@ defmodule Arca.Config.Cfg do
   end
 
   defp default_config_path do
-    Application.get_env(:arca_cli, :default_config_path, "~/.arca/")
+    Application.get_env(:arca_config, :default_config_path, "~/.arca/")
   end
 
   defp default_config_file do
-    Application.get_env(:arca_cli, :default_config_file, "config.json")
+    Application.get_env(:arca_config, :default_config_file, "config.json")
   end
 end

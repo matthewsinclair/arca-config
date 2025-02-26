@@ -7,6 +7,9 @@
 # The directory Mix downloads your dependencies sources to.
 /deps/
 
+# Where third-party dependencies like ExDoc output generated docs.
+/doc/
+
 # Ignore .fetch files in case you like to edit your project deps locally.
 /.fetch
 
@@ -21,3 +24,12 @@ arca_config-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Test generated config files
+/.arca/timestamp.json
+
+# macOS files
+.DS_Store
+
+# Elixir Language Server
+/.elixir_ls/
