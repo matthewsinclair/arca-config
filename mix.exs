@@ -32,7 +32,7 @@ defmodule ArcaConfig.MixProject do
       {:jason, "~> 1.4"},
       {:tesla, "~> 1.5.1"},
       {:certifi, "~> 2.9"},
-      {:ex_doc, "~> 0.29.1"},
+      {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:owl, "~> 0.12"},
       {:ucwidth, "~> 0.2"},
       {:pathex, "~> 2.5.1"},
