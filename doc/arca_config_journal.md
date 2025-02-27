@@ -6,6 +6,18 @@ verblock: "2024-05-17:v0.1: Matthew Sinclair - Initial version"
 
 ##### 20250227
 
+Added systematic wrap-up and commit workflow to improve development process.
+
+**Logs**
+
+* Created `scripts/wrap-up` interactive script to automate the commit process
+* Added workflow documentation in `doc/workflow.md`
+* Implemented structured approach for reviewing changes
+* Added project journal update automation
+* Added validation steps (tests, formatting) before commit
+
+##### 20250227
+
 Added auto-configuration feature to derive settings from parent app. Updated local config fallback. Updated deps.
 
 **Logs**

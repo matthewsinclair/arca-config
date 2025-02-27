@@ -1,0 +1,147 @@
+#!/bin/bash
+# Arca Config - Systematic Wrap Up and Commit Workflow
+# Usage: ./scripts/wrap-up
+
+set -e
+
+# ANSI colors for better readability
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+BLUE="\033[0;34m"
+PURPLE="\033[0;35m"
+CYAN="\033[0;36m"
+RESET="\033[0m"
+
+echo -e "\n${YELLOW}========== ARCA CONFIG WRAP-UP WORKFLOW ==========${RESET}\n"
+
+# 1. REVIEW ALL CHANGES
+echo -e "\n${BLUE}[1/5] Reviewing all changes...${RESET}\n"
+
+echo -e "${CYAN}>> Git Status:${RESET}"
+git status
+
+echo -e "\n${CYAN}>> Git Diff:${RESET}"
+git --no-pager diff --stat
+
+read -p "Would you like to see the full diff? (y/n): " show_diff
+if [[ $show_diff =~ ^[Yy]$ ]]; then
+  git --no-pager diff
+fi
+
+# 2. UPDATE DOCUMENTATION
+echo -e "\n${BLUE}[2/5] Checking documentation updates...${RESET}\n"
+
+DOC_FILES=(README.md doc/*.md)
+echo -e "${CYAN}>> Documentation files that might need updating:${RESET}"
+ls -la ${DOC_FILES[@]} 2>/dev/null || echo "No documentation files found."
+
+read -p "Do you need to update documentation? (y/n): " update_docs
+if [[ $update_docs =~ ^[Yy]$ ]]; then
+  read -p "Which file would you like to edit? (e.g., README.md): " doc_file
+  if [[ -f "$doc_file" ]]; then
+    ${EDITOR:-nano} "$doc_file"
+    echo -e "${GREEN}Documentation updated.${RESET}"
+  else
+    echo -e "${YELLOW}File not found. Skipping documentation update.${RESET}"
+  fi
+fi
+
+# 3. UPDATE JOURNAL
+echo -e "\n${BLUE}[3/5] Updating project journal...${RESET}\n"
+
+JOURNAL_FILE="doc/arca_config_journal.md"
+if [[ -f "$JOURNAL_FILE" ]]; then
+  echo -e "${CYAN}>> Current journal entries:${RESET}"
+  head -20 "$JOURNAL_FILE"
+  
+  read -p "Do you want to add a new journal entry? (y/n): " add_journal
+  if [[ $add_journal =~ ^[Yy]$ ]]; then
+    # Get today's date in YYYYMMDD format
+    TODAY=$(date +%Y%m%d)
+    
+    # Create a temporary file for the journal entry
+    TEMP_FILE=$(mktemp)
+    
+    echo "##### $TODAY" > "$TEMP_FILE"
+    echo "" >> "$TEMP_FILE"
+    read -p "Enter a brief summary of changes: " summary
+    echo "$summary" >> "$TEMP_FILE"
+    echo "" >> "$TEMP_FILE"
+    echo "**Logs**" >> "$TEMP_FILE"
+    echo "" >> "$TEMP_FILE"
+    
+    # Add bullet points
+    echo "Enter bullet points of changes (empty line to finish):"
+    while true; do
+      read -p "* " bullet
+      if [[ -z "$bullet" ]]; then
+        break
+      fi
+      echo "* $bullet" >> "$TEMP_FILE"
+    done
+    
+    # Add a placeholder for the commit hash (will be updated after commit)
+    echo "* COMMIT_HASH_PLACEHOLDER" >> "$TEMP_FILE"
+    echo "" >> "$TEMP_FILE"
+    
+    # Save the journal entry at the top of the journal file
+    JOURNAL_CONTENT=$(cat "$JOURNAL_FILE")
+    head -5 "$JOURNAL_FILE" > "$JOURNAL_FILE.new"
+    cat "$TEMP_FILE" >> "$JOURNAL_FILE.new"
+    echo "" >> "$JOURNAL_FILE.new"
+    tail -n +6 "$JOURNAL_FILE" >> "$JOURNAL_FILE.new"
+    mv "$JOURNAL_FILE.new" "$JOURNAL_FILE"
+    rm "$TEMP_FILE"
+    
+    echo -e "${GREEN}Journal updated.${RESET}"
+  fi
+else
+  echo -e "${YELLOW}Journal file not found at $JOURNAL_FILE. Skipping journal update.${RESET}"
+fi
+
+# 4. FINAL VALIDATION
+echo -e "\n${BLUE}[4/5] Running final validation...${RESET}\n"
+
+echo -e "${CYAN}>> Running tests:${RESET}"
+./scripts/test
+
+echo -e "\n${CYAN}>> Running formatter:${RESET}"
+mix format
+
+echo -e "\n${CYAN}>> Final status check:${RESET}"
+git status
+
+# 5. COMMIT CHANGES
+echo -e "\n${BLUE}[5/5] Preparing to commit changes...${RESET}\n"
+
+read -p "Ready to commit changes? (y/n): " ready_to_commit
+if [[ $ready_to_commit =~ ^[Yy]$ ]]; then
+  git add --all
+  
+  read -p "Enter commit message: " commit_message
+  COMMIT_HASH=$(git commit -m "$commit_message")
+  
+  echo -e "${GREEN}Changes committed successfully!${RESET}"
+  
+  # Update the journal file with the actual commit hash if a journal entry was added
+  if [[ $add_journal =~ ^[Yy]$ ]]; then
+    LATEST_COMMIT=$(git log -1 --pretty=format:"%h - %s (%cr) <%an>")
+    sed -i '' "s/COMMIT_HASH_PLACEHOLDER/$LATEST_COMMIT/" "$JOURNAL_FILE"
+    git add "$JOURNAL_FILE"
+    git commit --amend --no-edit
+    echo -e "${GREEN}Journal updated with commit information.${RESET}"
+  fi
+  
+  echo -e "\n${CYAN}>> Commit summary:${RESET}"
+  git log -1 --stat
+  
+  read -p "Push changes to remote? (y/n): " push_changes
+  if [[ $push_changes =~ ^[Yy]$ ]]; then
+    git push
+    echo -e "${GREEN}Changes pushed to remote.${RESET}"
+  fi
+else
+  echo -e "${YELLOW}Commit skipped.${RESET}"
+fi
+
+echo -e "\n${GREEN}Wrap-up workflow completed.${RESET}\n"
