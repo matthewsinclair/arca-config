@@ -1,6 +1,6 @@
 {
   "database": {
-    "host": "localhost"
+    "host": "127.0.0.1"
   },
   "id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON"
 }

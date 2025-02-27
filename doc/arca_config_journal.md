@@ -6,10 +6,14 @@ verblock: "2024-05-17:v0.1: Matthew Sinclair - Initial version"
 
 ##### 20250227
 
-Updated deps
+Added auto-configuration feature to derive settings from parent app. Updated deps.
 
 **Logs**
 
+* Auto-derive configuration paths and env vars from parent application name
+* Maintain backward compatibility with existing configuration methods
+* Add comprehensive test coverage for new features
+* Update documentation to explain automatic configuration behavior
 * 20e863c - (HEAD -> main, upstream/main, local/main) Updated deps (88 seconds ago) <Matthew Sinclair>
 
 ##### 20250226

@@ -1,7 +1,22 @@
 defmodule Arca.Config.Cfg do
   @moduledoc """
   Provides a simple programmatic API to a set of configuration properties held in a JSON config file.
+
+  This module automatically derives configuration paths and filenames from the parent application
+  if not explicitly configured. For example, if your application is named `:my_app`, the default
+  configuration path will be `~/.my_app/` and will look for environment variables like
+  `MY_APP_CONFIG_PATH` unless explicitly overridden.
   """
+
+  @doc false
+  def parent_app do
+    Application.get_application(Arca.Config.Cfg) || :arca_config
+  end
+
+  @doc false
+  def env_var_prefix do
+    parent_app() |> to_string() |> String.upcase()
+  end
 
   @config_path_env_var "ARCA_CONFIG_PATH"
   @config_file_env_var "ARCA_CONFIG_FILE"
@@ -58,7 +73,13 @@ defmodule Arca.Config.Cfg do
   end
 
   @doc """
-  Get path for the configuration file, trying to pull from the environment variable `ARCA_CONFIG_PATH`.
+  Get path for the configuration file.
+
+  Looks for configuration in the following order:
+  1. Environment variable named `ARCA_CONFIG_PATH`
+  2. Environment variable derived from parent app name (e.g., `MY_APP_CONFIG_PATH`)
+  3. Application config under `:arca_config, :config_path`
+  4. Default path based on parent application name
 
   ## Examples
       iex> Arca.Config.Cfg.config_pathname()
@@ -66,7 +87,10 @@ defmodule Arca.Config.Cfg do
   """
   @spec config_pathname() :: String.t()
   def config_pathname do
+    app_specific_env_var = "#{env_var_prefix()}_CONFIG_PATH"
+
     System.get_env(@config_path_env_var) ||
+      System.get_env(app_specific_env_var) ||
       Application.get_env(:arca_config, :config_path) ||
       default_config_path()
   end
@@ -84,7 +108,13 @@ defmodule Arca.Config.Cfg do
   end
 
   @doc """
-  Get name of the configuration file, trying to pull from the environment variable `ARCA_CONFIG_FILE`.
+  Get name of the configuration file.
+
+  Looks for configuration in the following order:
+  1. Environment variable named `ARCA_CONFIG_FILE`
+  2. Environment variable derived from parent app name (e.g., `MY_APP_CONFIG_FILE`)
+  3. Application config under `:arca_config, :config_file`
+  4. Default filename ("config.json")
 
   ## Examples
       iex> Arca.Config.Cfg.config_filename()
@@ -92,7 +122,10 @@ defmodule Arca.Config.Cfg do
   """
   @spec config_filename() :: String.t()
   def config_filename do
+    app_specific_env_var = "#{env_var_prefix()}_CONFIG_FILE"
+
     System.get_env(@config_file_env_var) ||
+      System.get_env(app_specific_env_var) ||
       Application.get_env(:arca_config, :config_file) ||
       default_config_file()
   end
@@ -238,11 +271,26 @@ defmodule Arca.Config.Cfg do
     end
   end
 
-  defp default_config_path do
-    Application.get_env(:arca_config, :default_config_path, "~/.arca/")
+  @doc """
+  Returns the default configuration path based on the parent application name.
+  
+  For example, if the parent app is `:my_app`, the default path will be `~/.my_app/`.
+  This can be overridden with the `:default_config_path` config option.
+  """
+  def default_config_path do
+    app_name = parent_app() |> to_string()
+    default = "~/.#{app_name}/"
+    
+    Application.get_env(:arca_config, :default_config_path, default)
   end
 
-  defp default_config_file do
+  @doc """
+  Returns the default configuration filename.
+  
+  The default is "config.json" but this can be overridden with the 
+  `:default_config_file` config option.
+  """
+  def default_config_file do
     Application.get_env(:arca_config, :default_config_file, "config.json")
   end
 end

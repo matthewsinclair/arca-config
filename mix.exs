@@ -37,7 +37,8 @@ defmodule ArcaConfig.MixProject do
       {:ucwidth, "~> 0.2"},
       {:pathex, "~> 2.5.1"},
       {:table_rex, "~> 4.0.0"},
-      {:elixir_uuid, "~> 1.2"}
+      {:elixir_uuid, "~> 1.2"},
+      {:meck, "~> 0.9", only: :test}
     ]
   end
 end

@@ -53,18 +53,32 @@ Arca Config can also be used as a command-line tool:
 
 ## Configuration
 
-By default, Arca Config looks for a JSON file at `~/.arca/config.json`. You can customize this location by:
+Arca Config automatically derives its configuration from the parent application. For example, if your application is named `:my_app`, it will look for a JSON file at `~/.my_app/config.json` by default.
 
-1. Setting environment variables:
-   - `ARCA_CONFIG_PATH`: Path to the directory containing the config file (default: `~/.arca/`)
-   - `ARCA_CONFIG_FILE`: Name of the config file (default: `config.json`)
+### Custom Configuration Locations
 
-2. Configuring your application:
+You can customize the configuration file location in the following ways (in order of precedence):
+
+1. Using generic environment variables (highest priority):
+   - `ARCA_CONFIG_PATH`: Path to the directory containing the config file
+   - `ARCA_CONFIG_FILE`: Name of the config file
+
+2. Using application-specific environment variables:
+   - `MY_APP_CONFIG_PATH`: Path derived from your app name
+   - `MY_APP_CONFIG_FILE`: Filename derived from your app name
+
+3. Using application configuration:
    ```elixir
    config :arca_config,
      config_path: "/custom/path/",
      config_file: "custom_config.json"
    ```
+
+4. Default values based on parent application (lowest priority):
+   - Default path: `~/.{app_name}/`
+   - Default file: `config.json`
+
+This auto-configuration feature means you don't need duplicate configuration across different applications, while maintaining backward compatibility with existing applications.
 
 ## Development
 
