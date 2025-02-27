@@ -2,6 +2,30 @@ defmodule Arca.Config.Cfg.Test do
   use ExUnit.Case, async: false
   alias Arca.Config.Cfg
   alias Arca.Config.Test.Support
+  
+  # Set up temporary test environment for doctests
+  setup_all do
+    # Set up test paths for doctest
+    test_path = System.tmp_dir!()
+    test_file = "config_test.json"
+    System.put_env("ARCA_CONFIG_PATH", test_path)
+    System.put_env("ARCA_CONFIG_FILE", test_file)
+    
+    # Ensure test file exists
+    config_file = Path.join(test_path, test_file)
+    File.mkdir_p!(Path.dirname(config_file))
+    File.write!(config_file, ~s({"id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON", "database": {"host": "localhost"}}))
+    
+    on_exit(fn ->
+      # Clean up test files
+      File.rm(config_file)
+      System.delete_env("ARCA_CONFIG_PATH")
+      System.delete_env("ARCA_CONFIG_FILE")
+    end)
+    
+    :ok
+  end
+  
   doctest Arca.Config
   doctest Arca.Config.Cfg
 
@@ -100,41 +124,43 @@ defmodule Arca.Config.Cfg.Test do
 
     test "put config property" do
       # Use a simple config file with just a timestamp attribute
-      System.put_env("ARCA_CONFIG_PATH", "./.arca")
+      temp_dir = System.tmp_dir!()
+      System.put_env("ARCA_CONFIG_PATH", temp_dir)
       System.put_env("ARCA_CONFIG_FILE", "timestamp.json")
 
       # Make sure file exists (and empty)
-      Cfg.config_file()
-      |> Path.expand()
-      |> File.write("{}")
+      config_file = Path.join(temp_dir, "timestamp.json")
+      File.write!(config_file, "{}")
 
       timestamp_in = DateTime.to_string(DateTime.utc_now())
 
       # Put a new value into the config and ensure that works
       case Cfg.put(:timestamp, timestamp_in) do
         {:ok, value} -> assert value == timestamp_in
-        {:error, reason} -> assert reason == false
+        {:error, reason} -> flunk("Error: #{reason}")
       end
 
       # Grab that value back from the config and ensure that works
       case Cfg.get(:timestamp) do
         {:ok, timestamp_out} -> assert timestamp_out == timestamp_in
+        {:error, reason} -> flunk("Error: #{reason}")
       end
 
       # Remove the file now we're done with it
-      Cfg.config_file()
-      |> File.rm()
+      File.rm!(config_file)
+      System.delete_env("ARCA_CONFIG_PATH")
+      System.delete_env("ARCA_CONFIG_FILE")
     end
 
     test "put! config property" do
       # Use a simple config file with just a timestamp attribute
-      System.put_env("ARCA_CONFIG_PATH", "./.arca")
+      temp_dir = System.tmp_dir!()
+      System.put_env("ARCA_CONFIG_PATH", temp_dir)
       System.put_env("ARCA_CONFIG_FILE", "timestamp.json")
 
       # Make sure file exists (and empty)
-      Cfg.config_file()
-      |> Path.expand()
-      |> File.write("{}")
+      config_file = Path.join(temp_dir, "timestamp.json")
+      File.write!(config_file, "{}")
 
       timestamp_in = DateTime.to_string(DateTime.utc_now())
 
@@ -147,8 +173,9 @@ defmodule Arca.Config.Cfg.Test do
       assert timestamp_out == timestamp_in
 
       # Remove the file now we're done with it
-      Cfg.config_file()
-      |> File.rm()
+      File.rm!(config_file)
+      System.delete_env("ARCA_CONFIG_PATH")
+      System.delete_env("ARCA_CONFIG_FILE")
     end
 
     test "config_data_pathname" do

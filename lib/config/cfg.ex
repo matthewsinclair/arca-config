@@ -22,20 +22,36 @@ defmodule Arca.Config.Cfg do
   @config_file_env_var "ARCA_CONFIG_FILE"
 
   @doc """
-  Loads configuration from the specified file. Defaults to "config.json" if no file is provided.
+  Loads configuration from the specified file, or auto-detects from home and local paths.
+  
+  When no file is explicitly provided, it first checks for a configuration file in the 
+  user's home directory (~/.app_name/config.json). If that doesn't exist, it falls back 
+  to looking in the local directory (./.app_name/config.json).
 
   ## Parameters
     - `config_file`: The path to the configuration file (optional).
 
   ## Examples
-      iex> Arca.Config.Test.Support.write_default_config_file(System.get_env("ARCA_CONFIG_FILE"), System.get_env("ARCA_CONFIG_PATH"))
+      iex> test_path = System.tmp_dir!()
+      iex> test_file = "config_test.json"
+      iex> System.put_env("ARCA_CONFIG_PATH", test_path)
+      iex> System.put_env("ARCA_CONFIG_FILE", test_file)
+      iex> File.write!(Path.join(test_path, test_file), ~s({"id": "TEST_CONFIG"}))
       iex> {:ok, cfg} = Arca.Config.Cfg.load()
-      ...> cfg["id"]
-      "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON"
+      iex> cfg["id"]
+      "TEST_CONFIG"
+      iex> File.rm(Path.join(test_path, test_file))
   """
-  @spec load(String.t()) :: {:ok, map()} | {:error, String.t()}
-  def load(config_file \\ config_file()) do
-    config_file
+  @spec load(String.t() | nil) :: {:ok, map()} | {:error, String.t()}
+  def load(config_file \\ nil) do
+    file_path = 
+      if config_file do
+        config_file
+      else
+        config_file()
+      end
+      
+    file_path
     |> Path.expand()
     |> File.read()
     |> handle_file_read_result()
@@ -62,18 +78,46 @@ defmodule Arca.Config.Cfg do
 
   @doc """
   Get fully-qualified path name of the configuration file.
+  
+  Looks first in the home directory, then falls back to the local directory
+  if no configuration is found in the home path.
 
   ## Examples
-      iex> Arca.Config.Cfg.config_file()
-      ".arca/config.json"
+      iex> System.put_env("ARCA_CONFIG_PATH", Path.join(System.tmp_dir!(), "test_config"))
+      iex> System.put_env("ARCA_CONFIG_FILE", "test.json")
+      iex> String.ends_with?(Arca.Config.Cfg.config_file(), "test.json")
+      true
+      iex> System.delete_env("ARCA_CONFIG_PATH")
+      iex> System.delete_env("ARCA_CONFIG_FILE")
   """
   @spec config_file() :: String.t()
   def config_file do
-    Path.join(config_pathname(), config_filename())
+    home_path = config_pathname()
+    local_path = local_config_pathname()
+    filename = config_filename()
+    
+    # Guard against nil values
+    if home_path && filename do
+      home_config = Path.join(home_path, filename)
+      
+      if local_path && filename do
+        local_config = Path.join(local_path, filename)
+        
+        cond do
+          File.exists?(Path.expand(home_config)) -> home_config
+          true -> local_config
+        end
+      else
+        home_config
+      end
+    else
+      # Fallback to default location
+      Path.join(System.tmp_dir!(), "config.json")
+    end
   end
 
   @doc """
-  Get path for the configuration file.
+  Get path for the global configuration file (in user's home directory).
 
   Looks for configuration in the following order:
   1. Environment variable named `ARCA_CONFIG_PATH`
@@ -82,8 +126,10 @@ defmodule Arca.Config.Cfg do
   4. Default path based on parent application name
 
   ## Examples
+      iex> System.put_env("ARCA_CONFIG_PATH", "/test/path")
       iex> Arca.Config.Cfg.config_pathname()
-      ".arca"
+      "/test/path"
+      iex> System.delete_env("ARCA_CONFIG_PATH")
   """
   @spec config_pathname() :: String.t()
   def config_pathname do
@@ -96,11 +142,38 @@ defmodule Arca.Config.Cfg do
   end
 
   @doc """
+  Get path for the local configuration file (in current working directory).
+
+  Looks for configuration in the following order:
+  1. Environment variable named `ARCA_LOCAL_CONFIG_PATH`
+  2. Environment variable derived from parent app name (e.g., `MY_APP_LOCAL_CONFIG_PATH`)
+  3. Application config under `:arca_config, :local_config_path`
+  4. Default local path based on parent application name
+
+  ## Examples 
+      iex> System.put_env("ARCA_LOCAL_CONFIG_PATH", "/test/local/path")
+      iex> Arca.Config.Cfg.local_config_pathname()
+      "/test/local/path"
+      iex> System.delete_env("ARCA_LOCAL_CONFIG_PATH")
+  """
+  @spec local_config_pathname() :: String.t()
+  def local_config_pathname do
+    app_specific_env_var = "#{env_var_prefix()}_LOCAL_CONFIG_PATH"
+
+    System.get_env("ARCA_LOCAL_CONFIG_PATH") ||
+      System.get_env(app_specific_env_var) ||
+      Application.get_env(:arca_config, :local_config_path) ||
+      local_config_path()
+  end
+
+  @doc """
   Get path for data files related to the configuration.
 
   ## Examples
+      iex> System.put_env("ARCA_CONFIG_PATH", "/test/path")
       iex> Arca.Config.Cfg.config_data_pathname()
-      ".arca/data/links"
+      "/test/path/data/links"
+      iex> System.delete_env("ARCA_CONFIG_PATH")
   """
   @spec config_data_pathname() :: String.t()
   def config_data_pathname do
@@ -117,8 +190,10 @@ defmodule Arca.Config.Cfg do
   4. Default filename ("config.json")
 
   ## Examples
+      iex> System.put_env("ARCA_CONFIG_FILE", "test.json")
       iex> Arca.Config.Cfg.config_filename()
-      "config.json"
+      "test.json"
+      iex> System.delete_env("ARCA_CONFIG_FILE")
   """
   @spec config_filename() :: String.t()
   def config_filename do
@@ -137,9 +212,14 @@ defmodule Arca.Config.Cfg do
     - `name`: The name of the property to inspect.
 
   ## Examples
-      iex> Arca.Config.Cfg.put("id", "ID")
+      iex> test_path = System.tmp_dir!()
+      iex> test_file = "config_test.json"
+      iex> System.put_env("ARCA_CONFIG_PATH", test_path)
+      iex> System.put_env("ARCA_CONFIG_FILE", test_file)
+      iex> File.write!(Path.join(test_path, test_file), ~s({"id": "TEST_ID"}))
       iex> Arca.Config.Cfg.inspect_property("id")
-      {:ok, "ID"}
+      {:ok, "TEST_ID"}
+      iex> File.rm(Path.join(test_path, test_file))
   """
   @spec inspect_property(String.t() | atom()) :: {:ok, any()} | {:error, String.t()}
   def inspect_property(name) do
@@ -159,9 +239,14 @@ defmodule Arca.Config.Cfg do
     - `key`: The key to retrieve from the configuration.
 
   ## Examples
-      iex> Arca.Config.Cfg.put("database.host", "localhost")
+      iex> test_path = System.tmp_dir!()
+      iex> test_file = "config_test.json"
+      iex> System.put_env("ARCA_CONFIG_PATH", test_path)
+      iex> System.put_env("ARCA_CONFIG_FILE", test_file)
+      iex> File.write!(Path.join(test_path, test_file), ~s({"database": {"host": "localhost"}}))
       iex> Arca.Config.Cfg.get("database.host")
       {:ok, "localhost"}
+      iex> File.rm(Path.join(test_path, test_file))
   """
   @spec get(String.t() | atom()) :: {:ok, any()} | {:error, String.t()}
   def get(key) do
@@ -189,9 +274,14 @@ defmodule Arca.Config.Cfg do
     - `key`: The key to retrieve from the configuration.
 
   ## Examples
-      iex> Arca.Config.Cfg.put!("database.host", "localhost")
+      iex> test_path = System.tmp_dir!()
+      iex> test_file = "config_test.json"
+      iex> System.put_env("ARCA_CONFIG_PATH", test_path)
+      iex> System.put_env("ARCA_CONFIG_FILE", test_file)
+      iex> File.write!(Path.join(test_path, test_file), ~s({"database": {"host": "localhost"}}))
       iex> Arca.Config.Cfg.get!("database.host")
       "localhost"
+      iex> File.rm(Path.join(test_path, test_file))
 
   ## Raises
     - `RuntimeError`: If the key is not found in the configuration.
@@ -212,8 +302,16 @@ defmodule Arca.Config.Cfg do
     - `value`: The new value to set for the key.
 
   ## Examples
+      iex> test_path = System.tmp_dir!()
+      iex> test_file = "config_test.json"
+      iex> System.put_env("ARCA_CONFIG_PATH", test_path)
+      iex> System.put_env("ARCA_CONFIG_FILE", test_file)
+      iex> File.write!(Path.join(test_path, test_file), "{}")
       iex> Arca.Config.Cfg.put("database.host", "127.0.0.1")
-      {:ok, "127.0.0.1"}
+      iex> {:ok, value} = Arca.Config.Cfg.get("database.host")
+      iex> value
+      "127.0.0.1"
+      iex> File.rm(Path.join(test_path, test_file))
   """
   @spec put(String.t() | atom(), any()) :: {:ok, any()} | {:error, String.t()}
   def put(key, value) do
@@ -238,8 +336,15 @@ defmodule Arca.Config.Cfg do
     - `value`: The new value to set for the key.
 
   ## Examples
-      iex> Arca.Config.Cfg.put!("database.host", "127.0.0.1")
+      iex> test_path = System.tmp_dir!()
+      iex> test_file = "config_test.json"
+      iex> System.put_env("ARCA_CONFIG_PATH", test_path)
+      iex> System.put_env("ARCA_CONFIG_FILE", test_file)
+      iex> File.write!(Path.join(test_path, test_file), "{}")
+      iex> result = Arca.Config.Cfg.put!("database.host", "127.0.0.1")
+      iex> result
       "127.0.0.1"
+      iex> File.rm(Path.join(test_path, test_file))
 
   ## Raises
     - `RuntimeError`: If the update operation fails.
@@ -276,12 +381,29 @@ defmodule Arca.Config.Cfg do
   
   For example, if the parent app is `:my_app`, the default path will be `~/.my_app/`.
   This can be overridden with the `:default_config_path` config option.
+  
+  This path is within the user's home directory.
   """
   def default_config_path do
     app_name = parent_app() |> to_string()
     default = "~/.#{app_name}/"
     
     Application.get_env(:arca_config, :default_config_path, default)
+  end
+  
+  @doc """
+  Returns the local configuration path based on the parent application name.
+  
+  For example, if the parent app is `:my_app`, the local path will be `./.my_app/`.
+  This can be overridden with the `:local_config_path` config option.
+  
+  This path is within the current working directory.
+  """
+  def local_config_path do
+    app_name = parent_app() |> to_string()
+    default = "./.#{app_name}/"
+    
+    Application.get_env(:arca_config, :local_config_path, default)
   end
 
   @doc """

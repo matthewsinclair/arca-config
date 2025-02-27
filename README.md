@@ -53,7 +53,12 @@ Arca Config can also be used as a command-line tool:
 
 ## Configuration
 
-Arca Config automatically derives its configuration from the parent application. For example, if your application is named `:my_app`, it will look for a JSON file at `~/.my_app/config.json` by default.
+Arca Config automatically derives its configuration from the parent application. For example, if your application is named `:my_app`:
+
+1. It will first check for a configuration file at `~/.my_app/config.json` in the user's home directory.
+2. If no file is found there, it will then look for `./.my_app/config.json` in the current working directory.
+
+This allows for both global user settings and project-specific settings, with the global settings taking precedence.
 
 ### Custom Configuration Locations
 

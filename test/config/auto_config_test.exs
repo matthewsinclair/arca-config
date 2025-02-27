@@ -35,6 +35,66 @@ defmodule Arca.Config.AutoConfigTest do
       assert Cfg.parent_app() == :arca_config
     end
   end
+  
+  describe "config_file/0" do
+    test "prefers home config file if it exists" do
+      # Set up temp directories
+      home_path = Path.join(System.tmp_dir!(), "arca_test_home")
+      local_path = Path.join(System.tmp_dir!(), "arca_test_local")
+      
+      File.mkdir_p!(home_path)
+      File.mkdir_p!(local_path)
+      
+      # Override paths with environment variables
+      System.put_env("ARCA_CONFIG_PATH", home_path)
+      System.put_env("ARCA_LOCAL_CONFIG_PATH", local_path)
+      
+      home_config = Path.join(home_path, Cfg.config_filename())
+      local_config = Path.join(local_path, Cfg.config_filename())
+      
+      try do
+        # Write test files
+        File.write!(home_config, "{\"test\": \"home\"}")
+        File.write!(local_config, "{\"test\": \"local\"}")
+        
+        # Verify home config is preferred
+        assert Cfg.config_file() == Path.join(home_path, Cfg.config_filename())
+      after
+        # Clean up test files and env vars
+        File.rm_rf!(home_path)
+        File.rm_rf!(local_path)
+        System.delete_env("ARCA_CONFIG_PATH")
+        System.delete_env("ARCA_LOCAL_CONFIG_PATH")
+      end
+    end
+    
+    test "falls back to local config if home config doesn't exist" do
+      # Set up temp directories
+      home_path = Path.join(System.tmp_dir!(), "arca_test_home_not_exist")
+      local_path = Path.join(System.tmp_dir!(), "arca_test_local_fallback") 
+      
+      File.mkdir_p!(local_path)
+      
+      # Override paths with environment variables
+      System.put_env("ARCA_CONFIG_PATH", home_path)
+      System.put_env("ARCA_LOCAL_CONFIG_PATH", local_path)
+      
+      local_config = Path.join(local_path, Cfg.config_filename())
+      
+      try do
+        # Write test file only in local path
+        File.write!(local_config, "{\"test\": \"local\"}")
+        
+        # Verify local config is used when home config doesn't exist
+        assert Cfg.config_file() == Path.join(local_path, Cfg.config_filename())
+      after
+        # Clean up test files and env vars
+        File.rm_rf!(local_path)
+        System.delete_env("ARCA_CONFIG_PATH")
+        System.delete_env("ARCA_LOCAL_CONFIG_PATH")
+      end
+    end
+  end
 
   describe "env_var_prefix/0" do
     test "returns the uppercase parent app name" do
@@ -65,6 +125,46 @@ defmodule Arca.Config.AutoConfigTest do
       
       # Reset application config
       Application.put_env(:arca_config, :default_config_path, nil)
+    end
+  end
+
+  describe "local_config_pathname/0" do
+    test "uses generic env var first" do
+      System.put_env("ARCA_LOCAL_CONFIG_PATH", "/generic/local/path/")
+      System.put_env("ARCA_CONFIG_LOCAL_CONFIG_PATH", "/specific/local/path/")
+      
+      assert Cfg.local_config_pathname() == "/generic/local/path/"
+    end
+
+    test "uses app-specific env var second" do
+      System.delete_env("ARCA_LOCAL_CONFIG_PATH")
+      System.put_env("ARCA_CONFIG_LOCAL_CONFIG_PATH", "/specific/local/path/")
+      
+      assert Cfg.local_config_pathname() == "/specific/local/path/"
+    end
+
+    test "uses application config third" do
+      System.delete_env("ARCA_LOCAL_CONFIG_PATH")
+      System.delete_env("ARCA_CONFIG_LOCAL_CONFIG_PATH")
+      
+      Application.put_env(:arca_config, :local_config_path, "/app/local/config/path/")
+      
+      assert Cfg.local_config_pathname() == "/app/local/config/path/"
+      
+      # Reset application config
+      Application.put_env(:arca_config, :local_config_path, nil)
+    end
+
+    test "uses default local path as last resort" do
+      System.delete_env("ARCA_LOCAL_CONFIG_PATH")
+      System.delete_env("ARCA_CONFIG_LOCAL_CONFIG_PATH")
+      Application.delete_env(:arca_config, :local_config_path)
+      
+      # Get the actual default path and verify it's used
+      default_path = Cfg.local_config_path()
+      result = Cfg.local_config_pathname()
+      
+      assert result == default_path
     end
   end
 
