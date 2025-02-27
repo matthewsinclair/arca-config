@@ -23,7 +23,7 @@ defmodule Arca.Config.Cfg do
 
   @doc """
   Loads configuration from the specified file, or auto-detects from home and local paths.
-  
+
   When no file is explicitly provided, it first checks for a configuration file in the 
   user's home directory (~/.app_name/config.json). If that doesn't exist, it falls back 
   to looking in the local directory (./.app_name/config.json).
@@ -44,13 +44,13 @@ defmodule Arca.Config.Cfg do
   """
   @spec load(String.t() | nil) :: {:ok, map()} | {:error, String.t()}
   def load(config_file \\ nil) do
-    file_path = 
+    file_path =
       if config_file do
         config_file
       else
         config_file()
       end
-      
+
     file_path
     |> Path.expand()
     |> File.read()
@@ -78,7 +78,7 @@ defmodule Arca.Config.Cfg do
 
   @doc """
   Get fully-qualified path name of the configuration file.
-  
+
   Looks first in the home directory, then falls back to the local directory
   if no configuration is found in the home path.
 
@@ -95,14 +95,14 @@ defmodule Arca.Config.Cfg do
     home_path = config_pathname()
     local_path = local_config_pathname()
     filename = config_filename()
-    
+
     # Guard against nil values
     if home_path && filename do
       home_config = Path.join(home_path, filename)
-      
+
       if local_path && filename do
         local_config = Path.join(local_path, filename)
-        
+
         cond do
           File.exists?(Path.expand(home_config)) -> home_config
           true -> local_config
@@ -378,37 +378,37 @@ defmodule Arca.Config.Cfg do
 
   @doc """
   Returns the default configuration path based on the parent application name.
-  
+
   For example, if the parent app is `:my_app`, the default path will be `~/.my_app/`.
   This can be overridden with the `:default_config_path` config option.
-  
+
   This path is within the user's home directory.
   """
   def default_config_path do
     app_name = parent_app() |> to_string()
     default = "~/.#{app_name}/"
-    
+
     Application.get_env(:arca_config, :default_config_path, default)
   end
-  
+
   @doc """
   Returns the local configuration path based on the parent application name.
-  
+
   For example, if the parent app is `:my_app`, the local path will be `./.my_app/`.
   This can be overridden with the `:local_config_path` config option.
-  
+
   This path is within the current working directory.
   """
   def local_config_path do
     app_name = parent_app() |> to_string()
     default = "./.#{app_name}/"
-    
+
     Application.get_env(:arca_config, :local_config_path, default)
   end
 
   @doc """
   Returns the default configuration filename.
-  
+
   The default is "config.json" but this can be overridden with the 
   `:default_config_file` config option.
   """

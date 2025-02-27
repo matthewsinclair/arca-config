@@ -2,7 +2,7 @@ defmodule Arca.Config.Cfg.Test do
   use ExUnit.Case, async: false
   alias Arca.Config.Cfg
   alias Arca.Config.Test.Support
-  
+
   # Set up temporary test environment for doctests
   setup_all do
     # Set up test paths for doctest
@@ -10,22 +10,26 @@ defmodule Arca.Config.Cfg.Test do
     test_file = "config_test.json"
     System.put_env("ARCA_CONFIG_PATH", test_path)
     System.put_env("ARCA_CONFIG_FILE", test_file)
-    
+
     # Ensure test file exists
     config_file = Path.join(test_path, test_file)
     File.mkdir_p!(Path.dirname(config_file))
-    File.write!(config_file, ~s({"id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON", "database": {"host": "localhost"}}))
-    
+
+    File.write!(
+      config_file,
+      ~s({"id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON", "database": {"host": "localhost"}})
+    )
+
     on_exit(fn ->
       # Clean up test files
       File.rm(config_file)
       System.delete_env("ARCA_CONFIG_PATH")
       System.delete_env("ARCA_CONFIG_FILE")
     end)
-    
+
     :ok
   end
-  
+
   doctest Arca.Config
   doctest Arca.Config.Cfg
 

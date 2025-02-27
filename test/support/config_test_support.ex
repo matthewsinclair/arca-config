@@ -35,11 +35,16 @@ defmodule Arca.Config.Test.Support do
     Process.put(:on_exit, fn ->
       # Clean up test file
       File.rm(Path.expand(full_path))
-      
+
       # Restore original env vars or delete if they weren't set
-      if original_file, do: System.put_env("ARCA_CONFIG_FILE", original_file), else: System.delete_env("ARCA_CONFIG_FILE")
-      if original_path, do: System.put_env("ARCA_CONFIG_PATH", original_path), else: System.delete_env("ARCA_CONFIG_PATH")
-      
+      if original_file,
+        do: System.put_env("ARCA_CONFIG_FILE", original_file),
+        else: System.delete_env("ARCA_CONFIG_FILE")
+
+      if original_path,
+        do: System.put_env("ARCA_CONFIG_PATH", original_path),
+        else: System.delete_env("ARCA_CONFIG_PATH")
+
       # Call original cleanup
       old_on_exit.()
     end)

@@ -1,7 +1,7 @@
 defmodule Arca.Config do
   @moduledoc """
   Arca.Config provides a simple file-based configuration utility for Elixir projects.
-  
+
   It allows reading from and writing to a JSON configuration file, with support for
   nested properties using dot notation.
   """
@@ -19,7 +19,7 @@ defmodule Arca.Config do
 
   @doc """
   Entry point for the CLI.
-  
+
   Parses command-line arguments and executes the appropriate action.
   """
   @spec main(list(String.t())) :: :ok
@@ -29,13 +29,13 @@ defmodule Arca.Config do
         # Combine all remaining arguments into a single value
         value = Enum.join(rest, " ")
         handle_set(key, value)
-      
+
       ["get", key | _] ->
         handle_get(key)
-        
+
       ["list" | _] ->
         handle_list()
-        
+
       _ ->
         cli_spec()
         |> Optimus.parse!(argv)
@@ -46,7 +46,12 @@ defmodule Arca.Config do
   defp cli_spec do
     Optimus.new!(
       name: Application.get_env(:arca_config, :name, "arca_config"),
-      description: Application.get_env(:arca_config, :description, "A simple file-based configurator for Elixir apps"),
+      description:
+        Application.get_env(
+          :arca_config,
+          :description,
+          "A simple file-based configurator for Elixir apps"
+        ),
       version: Application.get_env(:arca_config, :version, "0.1.0"),
       author: Application.get_env(:arca_config, :author, "Arca"),
       about: Application.get_env(:arca_config, :about, "Arca Config CLI"),
@@ -144,21 +149,32 @@ defmodule Arca.Config do
 
   defp try_convert_value(value) do
     cond do
-      value == "true" -> true
-      value == "false" -> false
-      Regex.match?(~r/^-?\d+$/, value) -> String.to_integer(value)
-      Regex.match?(~r/^-?\d+\.\d+$/, value) -> String.to_float(value)
+      value == "true" ->
+        true
+
+      value == "false" ->
+        false
+
+      Regex.match?(~r/^-?\d+$/, value) ->
+        String.to_integer(value)
+
+      Regex.match?(~r/^-?\d+\.\d+$/, value) ->
+        String.to_float(value)
+
       String.starts_with?(value, "[") and String.ends_with?(value, "]") ->
         case Jason.decode(value) do
           {:ok, decoded} -> decoded
           _ -> value
         end
+
       String.starts_with?(value, "{") and String.ends_with?(value, "}") ->
         case Jason.decode(value) do
           {:ok, decoded} -> decoded
           _ -> value
         end
-      true -> value
+
+      true ->
+        value
     end
   end
 end
