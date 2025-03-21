@@ -17,7 +17,7 @@
   "mimerl": {:hex, :mimerl, "1.3.0", "d0cd9fc04b9061f82490f6581e0128379830e78535e017f7780f37fea7545726", [:rebar3], [], "hexpm", "a1e15a50d1887217de95f0b9b0793e32853f7c258a5cd227650889b38839fe9d"},
   "nimble_parsec": {:hex, :nimble_parsec, "1.4.2", "8efba0122db06df95bfaa78f791344a89352ba04baedd3849593bfce4d0dc1c6", [:mix], [], "hexpm", "4b21398942dda052b403bbe1da991ccd03a053668d147d53fb8c4e0efe09c973"},
   "ok": {:hex, :ok, "2.3.0", "0a3d513ec9038504dc5359d44e14fc14ef59179e625563a1a144199cdc3a6d30", [:mix], [], "hexpm", "f0347b3f8f115bf347c704184b33cf084f2943771273f2b98a3707a5fa43c4d5"},
-  "optimus": {:hex, :optimus, "0.5.0", "7050c0ea7fc448605d77c30bcf34c582919ae2ac1a92116d6c2d404bec822931", [:mix], [], "hexpm", "acfc75b341952d5d1dde8e0550425ecd3b656dfefa1bb4f14aea10005936378a"},
+  "optimus": {:git, "https://github.com/matthewsinclair/arca-optimus.git", "39b62b21ddc1c2ba89c8509c437c7da0267670ea", [branch: "main"]},
   "owl": {:hex, :owl, "0.12.2", "65906b525e5c3ef51bab6cba7687152be017aebe1da077bb719a5ee9f7e60762", [:mix], [{:ucwidth, "~> 0.2", [hex: :ucwidth, repo: "hexpm", optional: true]}], "hexpm", "6398efa9e1fea70a04d24231e10dcd66c1ac1aa2da418d20ef5357ec61de2880"},
   "parse_trans": {:hex, :parse_trans, "3.4.1", "6e6aa8167cb44cc8f39441d05193be6e6f4e7c2946cb2759f015f8c56b76e5ff", [:rebar3], [], "hexpm", "620a406ce75dada827b82e453c19cf06776be266f5a67cff34e1ef2cbb60e49a"},
   "pathex": {:hex, :pathex, "2.5.3", "0f2674c7cb52ae9220766cae2653b4013578349ae5ec07cb0c31b92684b3f19a", [:mix], [], "hexpm", "767aefc27d0303f583ba2064f0a49546067ab5de3c42b89f014a0ba32ea04830"},
