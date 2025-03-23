@@ -220,12 +220,16 @@ defmodule Arca.Config do
     - `{:error, reason}` if an error occurred
   
   ## Examples
-      iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
-      iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
+      iex> app_specific_path_var = Arca.Config.Cfg.env_var_prefix() <> "_CONFIG_PATH"
+      iex> app_specific_file_var = Arca.Config.Cfg.env_var_prefix() <> "_CONFIG_FILE"
+      iex> System.put_env(app_specific_path_var, System.tmp_dir!())
+      iex> System.put_env(app_specific_file_var, "doctest_config.json")
       iex> File.write!(Path.join(System.tmp_dir(), "doctest_config.json"), ~s({"app": {"name": "MyApp"}}))
       iex> {:ok, config} = Arca.Config.reload()
       iex> config["app"]["name"]
       "MyApp"
+      iex> System.delete_env(app_specific_path_var)
+      iex> System.delete_env(app_specific_file_var)
   """
   @spec reload() :: {:ok, map()} | {:error, term()}
   def reload, do: Server.reload()

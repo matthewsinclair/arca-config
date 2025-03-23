@@ -6,7 +6,13 @@ defmodule Arca.Config.MapTest do
   
   setup do
     # Store original environment variables
+    app_name = Arca.Config.Cfg.parent_app() |> to_string()
+    app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
+    app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
+    
     original_env = %{
+      app_specific_path: System.get_env(app_specific_path_var),
+      app_specific_file: System.get_env(app_specific_file_var),
       config_path: System.get_env("ARCA_CONFIG_PATH"),
       config_file: System.get_env("ARCA_CONFIG_FILE")
     }
@@ -16,9 +22,9 @@ defmodule Arca.Config.MapTest do
     File.mkdir_p!(test_dir)
     test_file = Path.join(test_dir, "test_config.json")
     
-    # Set environment variables for test
-    System.put_env("ARCA_CONFIG_PATH", test_dir)
-    System.put_env("ARCA_CONFIG_FILE", "test_config.json")
+    # Set environment variables for test - use app-specific variables since they take precedence
+    System.put_env(app_specific_path_var, test_dir)
+    System.put_env(app_specific_file_var, "test_config.json")
     
     # Write initial test config
     File.write!(
@@ -60,6 +66,8 @@ defmodule Arca.Config.MapTest do
     
     on_exit(fn ->
       # Restore original environment variables
+      if original_env.app_specific_path, do: System.put_env(app_specific_path_var, original_env.app_specific_path), else: System.delete_env(app_specific_path_var)
+      if original_env.app_specific_file, do: System.put_env(app_specific_file_var, original_env.app_specific_file), else: System.delete_env(app_specific_file_var)
       if original_env.config_path, do: System.put_env("ARCA_CONFIG_PATH", original_env.config_path), else: System.delete_env("ARCA_CONFIG_PATH")
       if original_env.config_file, do: System.put_env("ARCA_CONFIG_FILE", original_env.config_file), else: System.delete_env("ARCA_CONFIG_FILE")
       

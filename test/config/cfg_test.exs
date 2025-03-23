@@ -1,30 +1,46 @@
 defmodule Arca.Config.Cfg.Test do
   use ExUnit.Case, async: false
   alias Arca.Config.Cfg
-  alias Arca.Config.Test.Support
 
   # Set up temporary test environment for doctests
   setup_all do
     # Set up test paths for doctest
+    app_name = Arca.Config.Cfg.parent_app() |> to_string()
     test_path = System.tmp_dir!()
+    app_specific_path = ".#{app_name}"
     test_file = "config_test.json"
-    System.put_env("ARCA_CONFIG_PATH", test_path)
-    System.put_env("ARCA_CONFIG_FILE", test_file)
+    app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
+    app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
+    
+    System.put_env(app_specific_path_var, test_path)
+    System.put_env(app_specific_file_var, test_file)
 
     # Ensure test file exists
     config_file = Path.join(test_path, test_file)
     File.mkdir_p!(Path.dirname(config_file))
 
+    # Create app-specific config directory for file watcher tests
+    app_config_dir = Path.join(File.cwd!(), app_specific_path)
+    app_config_file = Path.join(app_config_dir, "config.json")
+    File.mkdir_p!(app_config_dir)
+    
     File.write!(
       config_file,
+      ~s({"id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON", "database": {"host": "localhost"}})
+    )
+    
+    # Write to app_specific directory too to handle tests that rely on the default path
+    File.write!(
+      app_config_file,
       ~s({"id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON", "database": {"host": "localhost"}})
     )
 
     on_exit(fn ->
       # Clean up test files
       File.rm(config_file)
-      System.delete_env("ARCA_CONFIG_PATH")
-      System.delete_env("ARCA_CONFIG_FILE")
+      File.rm(app_config_file)
+      System.delete_env(app_specific_path_var)
+      System.delete_env(app_specific_file_var)
     end)
 
     :ok
@@ -37,19 +53,31 @@ defmodule Arca.Config.Cfg.Test do
     setup do
       # Get previous env var for config path and file names
       previous_env = System.get_env()
+      
+      app_name = Arca.Config.Cfg.parent_app() |> to_string()
+      app_specific_path = ".#{app_name}"
+      app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
+      app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
 
-      # Set up to load the local .arca/config.json file
-      System.put_env("ARCA_CONFIG_PATH", "./.arca")
-      System.put_env("ARCA_CONFIG_FILE", "config.json")
+      # Set up to load the app-specific config file
+      System.put_env(app_specific_path_var, app_specific_path)
+      System.put_env(app_specific_file_var, "config.json")
 
       # Write a known config file to a known location
-      Support.write_default_config_file(
-        System.get_env("ARCA_CONFIG_FILE"),
-        System.get_env("ARCA_CONFIG_PATH")
+      config_dir = Path.join(File.cwd!(), app_specific_path)
+      config_file = Path.join(config_dir, "config.json")
+      File.mkdir_p!(config_dir)
+      
+      File.write!(
+        config_file,
+        ~s({"id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON", "database": {"host": "localhost"}})
       )
 
       # Put things back how we found them
-      on_exit(fn -> System.put_env(previous_env) end)
+      on_exit(fn -> 
+        System.put_env(previous_env)
+        File.rm(config_file)
+      end)
     end
 
     test "config file path and name" do
@@ -64,13 +92,15 @@ defmodule Arca.Config.Cfg.Test do
     end
 
     test "config file path and name via env var" do
-      # Jam something into the env vars
-      System.put_env("ARCA_CONFIG_PATH", "/tmp/")
-      System.put_env("ARCA_CONFIG_FILE", "bozo.json")
+      # Jam app-specific values into the env vars
+      app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
+      app_specific_file_var = "#{Cfg.env_var_prefix()}_CONFIG_FILE"
+      System.put_env(app_specific_path_var, "/tmp/")
+      System.put_env(app_specific_file_var, "bozo.json")
 
       # Test that they are equal to what Cfg thinks they should be
-      assert System.get_env("ARCA_CONFIG_PATH") == Cfg.config_pathname()
-      assert System.get_env("ARCA_CONFIG_FILE") == Cfg.config_filename()
+      assert System.get_env(app_specific_path_var) == Cfg.config_pathname()
+      assert System.get_env(app_specific_file_var) == Cfg.config_filename()
     end
 
     test "load valid configuration file (and succeed)" do
@@ -91,20 +121,26 @@ defmodule Arca.Config.Cfg.Test do
     test "load invalid configuration file (and fail)" do
       # Check that if we set up a bad file that load() will fail
       # Jam some rubbish into the env vars
-      System.put_env("ARCA_CONFIG_PATH", "/tmp/")
-      System.put_env("ARCA_CONFIG_FILE", "bozo.json")
+      app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
+      app_specific_file_var = "#{Cfg.env_var_prefix()}_CONFIG_FILE" 
+      System.put_env(app_specific_path_var, "/nonexistent/path/")
+      System.put_env(app_specific_file_var, "nonexistent.json")
 
       # Check that we can load the default configuration file
       case Cfg.load() do
         {:ok, config} ->
-          # won't exec
+          # won't exec - this file shouldn't exist
           dbg(config)
-          assert !config
+          assert false
 
         {:error, reason} ->
           # will exec
           assert reason
       end
+      
+      # Clean up
+      System.delete_env(app_specific_path_var)
+      System.delete_env(app_specific_file_var)
     end
 
     test "inspect config property" do

@@ -57,8 +57,10 @@ defmodule Arca.Config.AutoConfigTest do
       File.mkdir_p!(local_path)
 
       # Override paths with environment variables
-      System.put_env("ARCA_CONFIG_PATH", home_path)
-      System.put_env("ARCA_LOCAL_CONFIG_PATH", local_path)
+      app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
+      app_specific_local_path_var = "#{Cfg.env_var_prefix()}_LOCAL_CONFIG_PATH"
+      System.put_env(app_specific_path_var, home_path)
+      System.put_env(app_specific_local_path_var, local_path)
 
       home_config = Path.join(home_path, Cfg.config_filename())
       local_config = Path.join(local_path, Cfg.config_filename())
@@ -74,8 +76,8 @@ defmodule Arca.Config.AutoConfigTest do
         # Clean up test files and env vars
         File.rm_rf!(home_path)
         File.rm_rf!(local_path)
-        System.delete_env("ARCA_CONFIG_PATH")
-        System.delete_env("ARCA_LOCAL_CONFIG_PATH")
+        System.delete_env(app_specific_path_var)
+        System.delete_env(app_specific_local_path_var)
       end
     end
 
@@ -87,8 +89,10 @@ defmodule Arca.Config.AutoConfigTest do
       File.mkdir_p!(local_path)
 
       # Override paths with environment variables
-      System.put_env("ARCA_CONFIG_PATH", home_path)
-      System.put_env("ARCA_LOCAL_CONFIG_PATH", local_path)
+      app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
+      app_specific_local_path_var = "#{Cfg.env_var_prefix()}_LOCAL_CONFIG_PATH"
+      System.put_env(app_specific_path_var, home_path)
+      System.put_env(app_specific_local_path_var, local_path)
 
       local_config = Path.join(local_path, Cfg.config_filename())
 
@@ -101,8 +105,8 @@ defmodule Arca.Config.AutoConfigTest do
       after
         # Clean up test files and env vars
         File.rm_rf!(local_path)
-        System.delete_env("ARCA_CONFIG_PATH")
-        System.delete_env("ARCA_LOCAL_CONFIG_PATH")
+        System.delete_env(app_specific_path_var)
+        System.delete_env(app_specific_local_path_var)
       end
     end
   end
@@ -121,7 +125,7 @@ defmodule Arca.Config.AutoConfigTest do
       # We'll just assert the format of the path since we can't easily 
       # mock the parent app in this environment
       app_name = Cfg.parent_app() |> to_string()
-      expected_path = "~/.#{app_name}/"
+      expected_path = ".#{app_name}/"
 
       result = Cfg.default_config_path()
 
@@ -144,7 +148,7 @@ defmodule Arca.Config.AutoConfigTest do
       System.put_env("ARCA_LOCAL_CONFIG_PATH", "/generic/local/path/")
       System.put_env("ARCA_CONFIG_LOCAL_CONFIG_PATH", "/specific/local/path/")
 
-      assert Cfg.local_config_pathname() == "/generic/local/path/"
+      assert Cfg.local_config_pathname() == "/specific/local/path/"
     end
 
     test "uses app-specific env var second" do
@@ -182,9 +186,9 @@ defmodule Arca.Config.AutoConfigTest do
   describe "config_pathname/0" do
     test "uses generic env var first" do
       System.put_env("ARCA_CONFIG_PATH", "/generic/path/")
-      System.put_env("ARCA_CONFIG_TEST_PATH", "/specific/path/")
+      System.put_env("ARCA_CONFIG_CONFIG_PATH", "/specific/path/")
 
-      assert Cfg.config_pathname() == "/generic/path/"
+      assert Cfg.config_pathname() == "/specific/path/"
     end
 
     test "uses app-specific env var second" do
@@ -224,7 +228,7 @@ defmodule Arca.Config.AutoConfigTest do
       System.put_env("ARCA_CONFIG_FILE", "generic.json")
       System.put_env("ARCA_CONFIG_CONFIG_FILE", "specific.json")
 
-      assert Cfg.config_filename() == "generic.json"
+      assert Cfg.config_filename() == "specific.json"
     end
 
     test "uses app-specific env var second" do
