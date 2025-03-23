@@ -8,6 +8,7 @@ verblock: "23 Mar 2025:v0.2: Claude-assisted - Updated after completing ST0001"
 **Completed ST0001: Reconciling Arca.Config with Elixir Registry**
 
 ST0001 has been completed successfully. The implementation includes:
+
 - Integration with Elixir Registry for config change subscriptions
 - File watching capability to detect external changes
 - Callback system for reacting to configuration changes
@@ -15,9 +16,10 @@ ST0001 has been completed successfully. The implementation includes:
 - Token-based tracking to avoid notification loops
 
 Comprehensive documentation has been updated in:
+
 - Technical Product Design (`stp/eng/tpd/technical_product_design.md`)
 - User Guide (`stp/usr/user_guide.md`)
-- Reference Guide (`stp/usr/reference_guide.md`) 
+- Reference Guide (`stp/usr/reference_guide.md`)
 - Deployment Guide (`stp/usr/deployment_guide.md`)
 
 An upgrade prompt for dependent projects is available at `stp/prj/st/ST0001_upgrade_prompt.md`.

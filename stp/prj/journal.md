@@ -12,6 +12,7 @@ This document maintains a chronological record of project activities, decisions,
 Successfully completed the implementation of ST0001, which involved reconciling Arca.Config with Elixir Registry and adding several important new features:
 
 **Achievements:**
+
 - Integrated Arca.Config with Elixir Registry for robust change subscriptions
 - Implemented file watching capability to detect external changes to config files
 - Added a callback registration system for external code to react to config changes
@@ -22,6 +23,7 @@ Successfully completed the implementation of ST0001, which involved reconciling 
 - Created an upgrade prompt for dependent projects
 
 **Technical Decisions:**
+
 - Used Registry's duplicate keys feature to support multiple subscribers to the same key
 - Created a separate Registry for callbacks vs. key-specific subscriptions
 - Used periodic file checking (with timestamps) rather than file system watchers for greater portability
@@ -30,12 +32,14 @@ Successfully completed the implementation of ST0001, which involved reconciling 
 - Used railway-oriented programming with `{:ok, result}/{:error, reason}` tuples throughout
 
 **Challenges:**
+
 - Needed to fix test stability issues, particularly with file timestamps
 - Had to address a potential infinite recursion in notification system
 - Needed to carefully structure process handling in tests
 - Had to ensure that the FileWatcher could properly handle token-based tracking
 
 **Next Steps:**
+
 - Consider encrypted storage for sensitive configuration
 - Explore schema validation for configuration data
 - Add performance benchmarks for large configurations
