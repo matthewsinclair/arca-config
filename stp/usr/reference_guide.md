@@ -1,314 +1,584 @@
 ---
-verblock: "06 Mar 2025:v0.1: Matthew Sinclair - Initial version"
+verblock: "20250323:v1.0: Claude-assisted - Updated with Arca.Config reference information"
 ---
-# Reference Guide
+# Arca.Config Reference Guide
 
-This reference guide provides comprehensive information about the Steel Thread Project (STP) system. Unlike the task-oriented User Guide, this reference guide serves as a complete reference for all aspects of the system.
+This reference guide provides comprehensive information about the Arca.Config library. Unlike the task-oriented User Guide, this reference guide serves as a complete reference for all aspects of the system.
 
 ## Table of Contents
 
-1. [Command Reference](#command-reference)
-2. [Document Templates](#document-templates)
-3. [Directory Structure](#directory-structure)
-4. [Configuration Options](#configuration-options)
-5. [Best Practices](#best-practices)
-6. [Concepts and Terminology](#concepts-and-terminology)
+1. [API Reference](#api-reference)
+2. [Configuration Options](#configuration-options)
+3. [Component Architecture](#component-architecture)
+4. [Registry Integration](#registry-integration)
+5. [Persistence Model](#persistence-model)
+6. [Upgrading to Latest Version](#upgrading-to-latest-version)
+7. [Best Practices](#best-practices)
+8. [Concepts and Terminology](#concepts-and-terminology)
 
-## Command Reference
+## API Reference
 
-### Core Commands
+### Core API Functions
 
-#### `stp init`
+#### `get/1`, `get/2`
 
-Initializes a new STP project.
+Retrieves a configuration value by key path.
 
 **Usage:**
 
-```bash
-stp init <project_name> [directory]
+```elixir
+Arca.Config.get(key_path)
+Arca.Config.get(key_path, default)
 ```
 
 **Parameters:**
 
-- `project_name`: Name of the project (required)
-- `directory`: Target directory (optional, defaults to current directory)
+- `key_path`: A dot-separated string or list representing the path (required)
+- `default`: Value to return if key doesn't exist (optional)
+
+**Returns:**
+
+- `{:ok, value}` if the key exists
+- `{:error, reason}` if the key doesn't exist (without default)
+- `{:ok, default}` if key doesn't exist (with default)
 
 **Example:**
 
-```bash
-stp init "My Project" ./my-project
+```elixir
+{:ok, host} = Arca.Config.get("database.host")
+{:ok, port} = Arca.Config.get([:database, :port], 5432)
 ```
 
-**Output:**
+#### `get!/1`
 
-- Creates STP directory structure
-- Initializes template documents
-- Creates initial configuration
-
-#### `stp st`
-
-Manages steel threads.
+Retrieves a configuration value by key path or raises an error.
 
 **Usage:**
 
-```bash
-stp st <command> [options] [arguments]
-```
-
-**Subcommands:**
-
-`stp st new`
-
-Creates a new steel thread.
-
-**Usage:**
-
-```bash
-stp st new <title>
+```elixir
+Arca.Config.get!(key_path)
 ```
 
 **Parameters:**
 
-- `title`: Title of the steel thread (required)
+- `key_path`: A dot-separated string or list representing the path (required)
+
+**Returns:**
+
+- The value if the key exists
+
+**Raises:**
+
+- `RuntimeError` if the key doesn't exist
 
 **Example:**
 
-```bash
-stp st new "Implement User Authentication"
+```elixir
+host = Arca.Config.get!("database.host")
 ```
 
-`stp st done`
+#### `put/2`
 
-Marks a steel thread as complete.
+Updates a configuration value.
 
 **Usage:**
 
-```bash
-stp st done <id>
+```elixir
+Arca.Config.put(key_path, value)
 ```
 
 **Parameters:**
 
-- `id`: ID of the steel thread (required)
+- `key_path`: A dot-separated string or list representing the path (required)
+- `value`: The new value to set (required)
+
+**Returns:**
+
+- `{:ok, value}` if the update was successful
+- `{:error, reason}` if an error occurred
 
 **Example:**
 
-```bash
-stp st done ST0001
+```elixir
+{:ok, _} = Arca.Config.put("features.logging", true)
 ```
 
-`stp st list`
+#### `put!/2`
 
-Lists all steel threads.
+Updates a configuration value or raises an error.
 
 **Usage:**
 
-```bash
-stp st list [--status <status>]
-```
-
-**Options:**
-
-- `--status`: Filter by status (optional)
-
-**Example:**
-
-```bash
-stp st list --status "In Progress"
-```
-
-`stp st show`
-
-Shows details of a specific steel thread.
-
-**Usage:**
-
-```bash
-stp st show <id>
+```elixir
+Arca.Config.put!(key_path, value)
 ```
 
 **Parameters:**
 
-- `id`: ID of the steel thread (required)
+- `key_path`: A dot-separated string or list representing the path (required)
+- `value`: The new value to set (required)
+
+**Returns:**
+
+- The value if the update was successful
+
+**Raises:**
+
+- `RuntimeError` if an error occurred
 
 **Example:**
 
-```bash
-stp st show ST0001
+```elixir
+Arca.Config.put!("app.version", "1.1.0")
 ```
 
-#### `stp help`
+#### `reload/0`
 
-Displays help information.
+Reloads the configuration from disk.
 
 **Usage:**
 
-```bash
-stp help [command]
+```elixir
+Arca.Config.reload()
+```
+
+**Returns:**
+
+- `{:ok, config}` with the loaded configuration if successful
+- `{:error, reason}` if an error occurred
+
+**Example:**
+
+```elixir
+{:ok, _} = Arca.Config.reload()
+```
+
+#### `subscribe/1`
+
+Subscribes to changes to a specific configuration key.
+
+**Usage:**
+
+```elixir
+Arca.Config.subscribe(key_path)
 ```
 
 **Parameters:**
 
-- `command`: Command to get help for (optional)
+- `key_path`: A dot-separated string or list representing the path (required)
+
+**Returns:**
+
+- `{:ok, :subscribed}` if the subscription was successful
 
 **Example:**
 
-```bash
-stp help st
+```elixir
+{:ok, :subscribed} = Arca.Config.subscribe("database.host")
 ```
 
-### Additional Commands
+#### `unsubscribe/1`
 
-[Document any additional commands here]
+Unsubscribes from changes to a specific configuration key.
 
-## Document Templates
+**Usage:**
 
-### Project Templates
-
-#### Work in Progress (WIP) Template
-
-Location: `doc/prj/wip.md`
-
-Purpose: Tracks current development focus and active steel threads.
-
-Structure:
-
-- Current Focus
-- Active Steel Threads
-- Upcoming Work
-- Notes
-
-#### Journal Template
-
-Location: `doc/prj/journal.md`
-
-Purpose: Maintains a chronological record of project activities.
-
-Structure:
-
-- Date entries
-- Activity descriptions
-- Decisions
-- Challenges and resolutions
-
-#### Steel Thread Templates
-
-Location: `doc/prj/st/`
-
-Purpose: Defines and tracks individual units of work.
-
-Structure:
-
-- Metadata (ID, status, dates)
-- Objective
-- Context
-- Approach
-- Tasks
-- Implementation notes
-- Results
-
-### Engineering Templates
-
-[Document engineering templates]
-
-### User Documentation Templates
-
-[Document user documentation templates]
-
-### LLM Templates
-
-[Document LLM templates]
-
-## Directory Structure
-
+```elixir
+Arca.Config.unsubscribe(key_path)
 ```
-stp/
-├── doc/                # Documentation directory
-│   ├── _templ/         # Templates directory
-│   ├── bin/            # STP script documentation
-│   ├── prj/            # Project documentation
-│   │   ├── st/         # Steel threads
-│   │   ├── wip.md      # Work in progress
-│   │   └── journal.md  # Project journal
-│   ├── eng/            # Engineering docs
-│   │   └── tpd/        # Technical Product Design
-│   ├── usr/            # User documentation
-│   └── llm/            # LLM-specific content
-├── bin/                # STP scripts (executable)
+
+**Parameters:**
+
+- `key_path`: A dot-separated string or list representing the path (required)
+
+**Returns:**
+
+- `{:ok, :unsubscribed}` if the unsubscription was successful
+
+**Example:**
+
+```elixir
+{:ok, :unsubscribed} = Arca.Config.unsubscribe("database.host")
+```
+
+#### `register_change_callback/2`
+
+Registers a callback for configuration changes.
+
+**Usage:**
+
+```elixir
+Arca.Config.register_change_callback(callback_id, callback_fn)
+```
+
+**Parameters:**
+
+- `callback_id`: Identifier for the callback (required)
+- `callback_fn`: Function that takes the entire config map (required)
+
+**Returns:**
+
+- `{:ok, :registered}` if the registration was successful
+
+**Example:**
+
+```elixir
+{:ok, :registered} = Arca.Config.register_change_callback(:my_component, fn config ->
+  IO.puts("Config changed: #{inspect(config)}")
+end)
+```
+
+#### `unregister_change_callback/1`
+
+Unregisters a previously registered callback.
+
+**Usage:**
+
+```elixir
+Arca.Config.unregister_change_callback(callback_id)
+```
+
+**Parameters:**
+
+- `callback_id`: The identifier of the callback to unregister (required)
+
+**Returns:**
+
+- `{:ok, :unregistered}` if the unregistration was successful
+
+**Example:**
+
+```elixir
+{:ok, :unregistered} = Arca.Config.unregister_change_callback(:my_component)
 ```
 
 ## Configuration Options
 
 ### Environment Variables
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| STP_HOME | Location of STP installation | Path to cloned repository |
-| STP_PROJECT | Current project name | Determined from initialization |
-| STP_AUTHOR | Default author name | Determined from git configuration |
-| STP_EDITOR | Preferred text editor | Determined from system defaults |
+Configuration options can be controlled through environment variables:
 
-### Project Configuration
+| Variable             | Purpose                              | Default     |
+|----------------------|--------------------------------------|-------------|
+| ARCA_CONFIG_PATH     | Directory containing the config file | ~/.arca     |
+| ARCA_CONFIG_FILE     | Name of the config file              | config.json |
+| APP_NAME_CONFIG_PATH | App-specific config path override    | None        |
+| APP_NAME_CONFIG_FILE | App-specific config file override    | None        |
 
-Location: `.stp-config`
+### Application Configuration
 
-Format: INI-style configuration file
+In your `config.exs` or other config files:
 
-Example:
-
-```ini
-# STP Project Configuration
-PROJECT_NAME="Project Name"
-AUTHOR="Default Author"
-ST_PREFIX="ST"
+```elixir
+config :arca_config,
+  config_path: "/path/to/config/directory",
+  config_file: "custom_config.json",
+  parent_app: :your_app_name  # Override parent app name detection
 ```
+
+### File Format
+
+Arca.Config uses JSON format for configuration files:
+
+```json
+{
+  "app": {
+    "name": "MyApp",
+    "version": "1.0.0"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "credentials": {
+      "username": "user",
+      "password": "password"
+    }
+  },
+  "features": {
+    "logging": true,
+    "metrics": false
+  }
+}
+```
+
+## Component Architecture
+
+Arca.Config consists of several key components:
+
+1. **Public API** (`Arca.Config`): Provides the external interface
+2. **Supervisor** (`Arca.Config.Supervisor`): Manages all processes
+3. **Server** (`Arca.Config.Server`): Manages configuration state
+4. **Cache** (`Arca.Config.Cache`): ETS-based caching layer
+5. **FileWatcher** (`Arca.Config.FileWatcher`): Monitors config file changes
+6. **Registry**: For change subscriptions
+7. **CallbackRegistry**: For change callbacks
+
+## Registry Integration
+
+Arca.Config uses two Registry instances:
+
+### Subscription Registry
+
+The `Arca.Config.Registry` is used for key-specific subscriptions:
+
+- Processes register for specific key paths
+- When a key changes, all subscribers receive a message
+- Messages are in the format `{:config_updated, key_path, new_value}`
+
+### Callback Registry
+
+The `Arca.Config.CallbackRegistry` is used for whole-config callbacks:
+
+- Functions register with a unique ID
+- When configuration changes externally, all callbacks are called
+- Callbacks receive the entire configuration map
+- Used for broader application-level reactions to config changes
+
+## Persistence Model
+
+### File Storage
+
+- Configuration is stored in a JSON file
+- The file is read at application startup
+- Changes made through the API are written to disk asynchronously
+- External changes are detected by the FileWatcher
+
+### Write Process
+
+1. Application calls `put/2`
+2. Server updates in-memory config
+3. Server generates a unique token for the write
+4. FileWatcher registers the token
+5. File is written asynchronously by a Task
+6. When FileWatcher detects the change, it ignores it because of the token
+
+### External Change Detection
+
+1. FileWatcher periodically checks the config file's timestamp
+2. If a change is detected without a matching token:
+   - Server reloads the configuration
+   - Cache is cleared and rebuilt
+   - Callbacks are notified
+
+## Upgrading to Latest Version
+
+### Upgrade Steps
+
+To upgrade to the latest version of Arca.Config:
+
+1. Update the dependency in your `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:arca_config, "~> 0.5.0"}, # Update to the latest version
+    # Other dependencies...
+  ]
+end
+```
+
+2. Update your dependencies:
+
+```bash
+mix deps.get
+mix deps.update arca_config
+```
+
+3. Run your tests to verify compatibility:
+
+```bash
+mix test
+```
+
+### Supervision Tree Changes
+
+If your application manually starts Arca.Config, update the supervision tree:
+
+```elixir
+# Previous (older versions)
+children = [
+  {Arca.Config, []} # or some variant of this
+]
+
+# New version (0.5.0+)
+children = [
+  {Arca.Config.Supervisor, []}
+]
+```
+
+### Change Detection Upgrades
+
+If your application had custom code to detect configuration changes, replace it with the new callback system:
+
+```elixir
+# Register a callback for configuration changes
+Arca.Config.register_change_callback(:my_component, fn config ->
+  # Handle configuration changes
+  IO.puts("Configuration changed")
+  update_component_with_new_config(config)
+end)
+
+# Later, when no longer needed
+Arca.Config.unregister_change_callback(:my_component)
+```
+
+### Subscription Implementation
+
+For components that need to watch for specific key changes:
+
+```elixir
+# Subscribe to specific key changes
+Arca.Config.subscribe("path.to.specific.key")
+
+# In your process, handle the notification messages
+def handle_info({:config_updated, key_path, new_value}, state) do
+  # React to the specific key change
+  {:noreply, update_state(state, key_path, new_value)}
+end
+
+# When no longer needed
+Arca.Config.unsubscribe("path.to.specific.key")
+```
+
+### API Compatibility
+
+The basic API (`get/1`, `get!/1`, `put/2`, `put!/2`, and `reload/0`) remains unchanged, so existing code using these functions will continue to work.
+
+### Claude Code Upgrade Prompt
+
+To upgrade projects using Arca.Config with Claude Code, you can use the prompt from [ST0001_upgrade_prompt.md](../../prj/st/ST0001_upgrade_prompt.md), which provides detailed instructions for automated upgrades.
 
 ## Best Practices
 
-### Steel Thread Management
+### Configuration Structure
 
-- Keep steel threads focused on discrete pieces of functionality
-- Aim for steel threads that can be completed in hours, not days
-- Create clear objectives for each steel thread
-- Update documentation as work progresses
-- Link related steel threads for context
+- Use descriptive key names
+- Group related configuration in nested objects
+- Keep sensitive information separate and consider environment variables
+- Avoid deep nesting beyond 3-4 levels
+- Use consistent naming conventions
 
-### Documentation Practices
+### Performance Optimization
 
-- Use consistent formatting across documents
-- Keep the WIP document updated with current focus
-- Document decisions and their rationale in the journal
-- Use clear, descriptive titles for steel threads
-- Maintain cross-references between related documents
+- Cache frequently accessed values at application startup
+- Batch configuration updates when possible
+- Keep callback functions lightweight
+- Unsubscribe from notifications when no longer needed
+- Consider the overhead of file watching in development environments
 
-### LLM Collaboration
+### Error Handling
 
-- Share relevant context at the beginning of each session
-- Use steel thread documents to maintain context across sessions
-- Create canned prompts for common tasks
-- Have the LLM update documentation as work progresses
-- Provide clear instructions for specific tasks
+- Use pattern matching with `{:ok, value}` and `{:error, reason}` tuples
+- Provide meaningful default values for optional configuration
+- Validate configuration at startup
+- Handle missing configuration gracefully
+- Use exception-raising functions (`get!/1`, `put!/2`) only when appropriate
+
+## Upgrading to Latest Version
+
+### Upgrade Steps
+
+To upgrade to the latest version of Arca.Config:
+
+1. Update the dependency in your `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:arca_config, "~> 0.5.0"}, # Update to the latest version
+    # Other dependencies...
+  ]
+end
+```
+
+2. Update your dependencies:
+
+```bash
+mix deps.get
+mix deps.update arca_config
+```
+
+3. Run your tests to verify compatibility:
+
+```bash
+mix test
+```
+
+### Supervision Tree Changes
+
+If your application manually starts Arca.Config, update the supervision tree:
+
+```elixir
+# Previous (older versions)
+children = [
+  {Arca.Config, []} # or some variant of this
+]
+
+# New version (0.5.0+)
+children = [
+  {Arca.Config.Supervisor, []}
+]
+```
+
+### Change Detection Upgrades
+
+If your application had custom code to detect configuration changes, replace it with the new callback system:
+
+```elixir
+# Register a callback for configuration changes
+Arca.Config.register_change_callback(:my_component, fn config ->
+  # Handle configuration changes
+  IO.puts("Configuration changed")
+  update_component_with_new_config(config)
+end)
+
+# Later, when no longer needed
+Arca.Config.unregister_change_callback(:my_component)
+```
+
+### Subscription Implementation
+
+For components that need to watch for specific key changes:
+
+```elixir
+# Subscribe to specific key changes
+Arca.Config.subscribe("path.to.specific.key")
+
+# In your process, handle the notification messages
+def handle_info({:config_updated, key_path, new_value}, state) do
+  # React to the specific key change
+  {:noreply, update_state(state, key_path, new_value)}
+end
+
+# When no longer needed
+Arca.Config.unsubscribe("path.to.specific.key")
+```
+
+### API Compatibility
+
+The basic API (`get/1`, `get!/1`, `put/2`, `put!/2`, and `reload/0`) remains unchanged, so existing code using these functions will continue to work.
+
+### Claude Code Upgrade Prompt
+
+To upgrade projects using Arca.Config with Claude Code, you can use the prompt from [ST0001_upgrade_prompt.md](../../prj/st/ST0001_upgrade_prompt.md), which provides detailed instructions for automated upgrades.
 
 ## Concepts and Terminology
 
 | Term | Definition |
 |------|------------|
-| Steel Thread | A self-contained unit of work representing a logical piece of functionality |
-| LLM | Large Language Model, an AI system capable of understanding and generating text |
-| Context Window | The amount of text an LLM can process in a single interaction |
-| Canned Prompt | A pre-defined, reusable instruction template for an LLM |
-| WIP | Work in Progress, a document tracking current development focus |
+| Configuration | A set of key-value pairs that control application behavior |
+| JSON | JavaScript Object Notation, the file format used for configuration storage |
+| Dot Notation | Accessing nested configuration using period-separated paths (e.g., "database.host") |
+| Registry | Elixir's built-in key-value process registry used for subscriptions |
+| Subscription | A mechanism to receive notifications when specific configuration keys change |
+| Callback | A function called when configuration changes occur |
+| File Watcher | A process that monitors configuration files for external changes |
+| ETS | Erlang Term Storage, used for caching configuration values |
+| Asynchronous Writes | Background operations that don't block the server |
+| Token | A unique identifier for tracking write operations to avoid notification loops |
 
 ---
 
 # Context for LLM
 
-This document template is for creating a reference guide for the STP system. When implementing this guide:
-
-1. Replace placeholder sections with comprehensive reference information
-2. Include complete command syntax, parameters, and examples
-3. Document all templates, their purposes, and structures
-4. Provide detailed configuration information
-5. Include best practices based on experience with the system
-
-The final reference guide should be thorough and comprehensive, serving as a complete reference for users of the STP system.
+This document provides a comprehensive reference guide for the Arca.Config library, including detailed API information, configuration options, upgrade instructions, and technical concepts. This reference is aimed at developers who need in-depth understanding of the library's capabilities and implementation details.

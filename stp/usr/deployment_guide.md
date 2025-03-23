@@ -1,9 +1,9 @@
 ---
-verblock: "06 Mar 2025:v0.1: Matthew Sinclair - Initial version"
+verblock: "20250323:v1.0: Claude-assisted - Updated with Arca.Config deployment information"
 ---
-# Deployment Guide
+# Arca.Config Deployment Guide
 
-This deployment guide provides instructions for deploying the Steel Thread Project (STP) system in various environments. It covers installation, configuration, and integration with other tools and workflows.
+This deployment guide provides instructions for deploying the Arca.Config library in various Elixir application environments. It covers installation, configuration, and integration with other tools and workflows.
 
 ## Table of Contents
 
@@ -18,183 +18,338 @@ This deployment guide provides instructions for deploying the Steel Thread Proje
 
 ### System Requirements
 
-- POSIX-compatible shell environment (bash, zsh)
-- Git (optional, for version control)
-- Text editor with markdown support
+- Elixir 1.12 or later
+- Erlang/OTP 24 or later
+- Mix build tool
+- A supported operating system (Linux, macOS, Windows)
 
 ### Installation Methods
 
-#### Global Installation
+#### Adding to an Elixir Project
 
-Install STP globally to make it available for all projects:
+Add Arca.Config to your project's dependencies in `mix.exs`:
 
-```bash
-# Clone the STP repository
-git clone https://github.com/username/stp.git ~/stp
-
-# Add STP bin directory to PATH in shell profile
-echo 'export STP_HOME=~/stp' >> ~/.bashrc
-echo 'export PATH=$PATH:$STP_HOME/bin' >> ~/.bashrc
-
-# Reload shell configuration
-source ~/.bashrc
+```elixir
+def deps do
+  [
+    {:arca_config, "~> 0.5.0"} # Check for the latest version
+  ]
+end
 ```
 
-#### Project-Specific Installation
-
-Install STP within a specific project:
+Install the dependency:
 
 ```bash
-# From your project directory
-git clone https://github.com/username/stp.git .stp
+mix deps.get
+```
 
-# Create a local alias for the project
-alias stp='./.stp/bin/stp'
+#### Including in Supervision Tree
+
+Add Arca.Config to your application's supervision tree in `application.ex`:
+
+```elixir
+def start(_type, _args) do
+  children = [
+    # Your existing children...
+    {Arca.Config.Supervisor, []}
+  ]
+
+  opts = [strategy: :one_for_one, name: YourApp.Supervisor]
+  Supervisor.start_link(children, opts)
+end
 ```
 
 #### Installation Verification
 
-Verify the installation:
+Verify the installation by creating a simple test:
 
-```bash
-stp help
+```elixir
+# In your application code or IEx
+{:ok, value} = Arca.Config.put("test.key", "test_value")
+{:ok, ^value} = Arca.Config.get("test.key")
 ```
 
-This should display the help information for STP commands.
+This should successfully set and retrieve a configuration value.
 
 ## Configuration
 
 ### Environment Variables
 
-Configure STP behavior using these environment variables:
+Configure Arca.Config behavior using these environment variables:
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| STP_HOME | Location of STP installation | Path to cloned repository |
-| STP_PROJECT | Current project name | Determined from initialization |
-| STP_AUTHOR | Default author name | Determined from git configuration |
-| STP_EDITOR | Preferred text editor | Determined from system defaults |
+| ARCA_CONFIG_PATH | Directory for configuration files | ~/.arca |
+| ARCA_CONFIG_FILE | Name of configuration file | config.json |
+| APP_NAME_CONFIG_PATH | App-specific path override | Not set |
+| APP_NAME_CONFIG_FILE | App-specific filename override | Not set |
 
-Example configuration in `.bashrc` or `.zshrc`:
+Example configuration in your deployment script or `.bashrc`:
 
 ```bash
-export STP_HOME=~/stp
-export STP_AUTHOR="Jane Doe"
-export STP_EDITOR="vim"
+export ARCA_CONFIG_PATH="/path/to/your/config/dir"
+export ARCA_CONFIG_FILE="custom_config.json"
 ```
 
-### Project Configuration
+### Application Configuration
 
-Create a project-specific configuration using `.stp-config`:
+Configure Arca.Config in your Elixir application configuration files:
 
-```ini
-# STP Project Configuration
-PROJECT_NAME="Project Name"
-AUTHOR="Default Author"
-ST_PREFIX="ST"
+```elixir
+# In config/config.exs, config/dev.exs, etc.
+config :arca_config,
+  config_path: "/path/to/config/directory",
+  config_file: "custom_config.json",
+  parent_app: :your_app_name  # Optional: override parent app name detection
+```
+
+### Default Configuration File
+
+Create a default configuration file at one of these locations:
+
+1. The path specified by environment variables
+2. `~/.arca/config.json` (in user's home directory)
+3. `./.arca/config.json` (in the current directory)
+
+Example configuration file:
+
+```json
+{
+  "app": {
+    "name": "Your Application",
+    "version": "1.0.0"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "username": "user"
+  },
+  "features": {
+    "enable_logging": true,
+    "debug_mode": false
+  }
+}
 ```
 
 ## Integration
 
-### Version Control Integration
+### Application Integration
 
-STP works seamlessly with git and other version control systems:
+#### GenServer Integration
 
-#### Recommended .gitignore
+For GenServers that need configuration values:
 
+```elixir
+defmodule YourApp.SomeService do
+  use GenServer
+  
+  def init(_) do
+    # Get initial config
+    {:ok, db_config} = Arca.Config.get("database")
+    
+    # Subscribe to config changes
+    Arca.Config.subscribe("database")
+    
+    {:ok, %{db_config: db_config}}
+  end
+  
+  def handle_info({:config_updated, ["database"], new_config}, state) do
+    # React to configuration change
+    {:noreply, %{state | db_config: new_config}}
+  end
+  
+  # Other GenServer callbacks...
+end
 ```
-# STP temporary files
-.stp-tmp/
+
+#### Phoenix Integration
+
+For Phoenix applications:
+
+```elixir
+# In your endpoint.ex
+def init(_key, config) do
+  # Load app configuration
+  {:ok, app_config} = Arca.Config.get("app")
+  
+  # Override Phoenix config with values from Arca.Config
+  config = 
+    config
+    |> Keyword.put(:http, [port: app_config["port"] || 4000])
+    
+  {:ok, config}
+end
 ```
-
-#### Commit Practices
-
-- Commit steel thread documents along with code changes
-- Use steel thread IDs in commit messages for traceability
-
-#### Branch Strategy
-
-- Create feature branches based on steel threads
-- Name branches using steel thread IDs (e.g., `feature/ST0001`)
 
 ### CI/CD Integration
 
-[Instructions for integrating with CI/CD pipelines]
+For CI/CD pipelines, ensure the configuration file is properly set up:
 
-### IDE Integration
+```yaml
+# Example GitHub Actions workflow
+jobs:
+  deploy:
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: 1.14.x
+          otp-version: 25.x
+      
+      - name: Create config directory
+        run: mkdir -p .arca
+        
+      - name: Create config file
+        run: |
+          echo '{
+            "app": {
+              "name": "YourApp",
+              "version": "1.0.0",
+              "environment": "production"
+            }
+          }' > .arca/config.json
+          
+      # Continue with build and deployment steps
+```
 
-[Instructions for integrating with common IDEs]
+### Docker Integration
 
-### LLM Platform Integration
+For Docker deployments:
 
-#### Claude Code Integration
+```dockerfile
+FROM elixir:1.14-alpine AS build
 
-[Instructions for integrating with Claude Code]
+# Add your build steps here
 
-#### Other LLM Integration
+FROM alpine:3.16 AS app
+COPY --from=build /app/_build/prod/rel/your_app ./
 
-[Instructions for integrating with other LLM platforms]
+# Set up config directory
+RUN mkdir -p /app/config
+COPY config.json /app/config/config.json
+
+# Set environment variables
+ENV ARCA_CONFIG_PATH=/app/config
+ENV ARCA_CONFIG_FILE=config.json
+
+# Run the application
+CMD ["/app/bin/your_app", "start"]
+```
 
 ## Maintenance
 
 ### Regular Maintenance Tasks
 
-- Update STP installation periodically
-- Review and clean up completed steel threads
-- Archive older project documents
+- Monitor configuration file size (keep it under a reasonable size)
+- Review and clean up unused configuration keys
+- Ensure proper permissions on configuration files
+- Consider encryption for sensitive configuration values
 
 ### Backup Practices
 
-- Include STP documents in regular backups
-- Ensure documentation is committed to version control
+- Include configuration files in regular backups
+- Version control your configuration files when appropriate
+- For sensitive configurations, use environment-specific files that are not committed
 
 ## Upgrading
 
-### Upgrading STP Installation
+### Upgrading Arca.Config
 
-To upgrade a global STP installation:
+To upgrade to a newer version:
 
-```bash
-cd $STP_HOME
-git pull
+```elixir
+# In mix.exs
+def deps do
+  [
+    {:arca_config, "~> 0.5.0"} # Update version number
+  ]
+end
 ```
 
-To upgrade a project-specific installation:
+Then update dependencies:
 
 ```bash
-cd my-project/.stp
-git pull
+mix deps.update arca_config
 ```
 
 ### Migrating Between Versions
 
-[Instructions for migrating between major versions]
+When upgrading from a version before 0.5.0:
+
+1. Update supervision tree to use `Arca.Config.Supervisor`
+2. Migrate custom change detection to use the callback registration system
+3. Update components that watched for changes to use the subscription system
+4. Test thoroughly after upgrading
+
+See the [Reference Guide's Upgrade section](./reference_guide.md#upgrading-to-latest-version) for detailed instructions.
 
 ## Troubleshooting
 
 ### Common Issues
 
-[List of common issues and their solutions]
+#### Configuration File Not Found
+
+- Verify the configuration file exists at the expected location
+- Check environment variables are set correctly
+- Ensure your application has read/write permissions to the file
+
+#### ETS Table Issues
+
+```
+** (ArgumentError) argument error
+    (stdlib 4.0.0) :ets.lookup(Arca.Config.Cache, ["app"])
+```
+
+- This typically means the Cache process isn't started
+- Ensure Arca.Config.Supervisor is in your application's supervision tree
+- Check if ETS owner process is running: `Process.whereis(Arca.Config.Cache)`
+
+#### Subscription Notifications Not Working
+
+- Verify the exact key path is used in the subscription
+- Check if Registry process is running: `Process.whereis(Arca.Config.Registry)`
+- Ensure the subscriber process properly handles the message format
 
 ### Diagnostic Tools
 
-[Description of diagnostic tools and commands]
+#### Check Process Status
+
+```elixir
+# Check if key processes are running
+IO.inspect(Process.whereis(Arca.Config.Server), label: "Server")
+IO.inspect(Process.whereis(Arca.Config.Cache), label: "Cache")
+IO.inspect(Process.whereis(Arca.Config.FileWatcher), label: "FileWatcher")
+IO.inspect(Process.whereis(Arca.Config.Registry), label: "Registry")
+IO.inspect(Process.whereis(Arca.Config.CallbackRegistry), label: "CallbackRegistry")
+```
+
+#### Inspect Current Configuration
+
+```elixir
+# Get current configuration state
+{:ok, config} = :sys.get_state(Arca.Config.Server)
+IO.inspect(config.config, label: "Current Config")
+```
+
+#### Check File Watcher State
+
+```elixir
+# Check FileWatcher state
+watcher_state = :sys.get_state(Arca.Config.FileWatcher)
+IO.inspect(watcher_state, label: "FileWatcher State")
+```
 
 ### Getting Help
 
-[Information on where to get help]
+If you encounter issues not covered here:
+
+- Check the detailed [API documentation](./reference_guide.md)
+- Submit issues to the GitHub repository
+- Contact the maintainers through GitHub issues
 
 ---
 
 # Context for LLM
 
-This document template is for creating a deployment guide for the STP system. When implementing this guide:
-
-1. Replace placeholder sections with detailed deployment instructions
-2. Include system requirements and prerequisites
-3. Provide clear, step-by-step installation instructions
-4. Detail configuration options and environment variables
-5. Include integration strategies for various tools and platforms
-6. Add troubleshooting information for common deployment issues
-
-The final deployment guide should provide all necessary information for deploying and configuring the STP system in various environments.
+This document provides deployment and integration instructions for the Arca.Config library. It covers how to install, configure, maintain, and troubleshoot the library in various Elixir application environments.
