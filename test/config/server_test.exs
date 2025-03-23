@@ -149,6 +149,39 @@ defmodule Arca.Config.ServerTest do
     end
   end
   
+  describe "notify_external_change/0" do
+    test "handles both tuple and map responses from get_config" do
+      # Register a callback to detect external changes
+      test_pid = self()
+      Arca.Config.register_change_callback(:test_callback, fn config ->
+        send(test_pid, {:callback_received, config})
+      end)
+      
+      # Test with original get_config implementation (returns map directly)
+      Server.notify_external_change()
+      assert_receive {:callback_received, config}, 500
+      assert is_map(config)
+      
+      # Mock the get_config implementation to return {:ok, config} tuple
+      :meck.new(GenServer, [:passthrough])
+      :meck.expect(GenServer, :call, fn 
+        (Arca.Config.Server, :get_config) -> 
+          {:ok, %{"test" => "tuple_response"}} 
+        (mod, msg) -> 
+          :meck.passthrough([mod, msg])
+      end)
+      
+      # Test with mocked get_config (returns {:ok, config} tuple)
+      Server.notify_external_change()
+      assert_receive {:callback_received, tuple_config}, 500
+      assert tuple_config["test"] == "tuple_response"
+      
+      # Clean up
+      Arca.Config.unregister_change_callback(:test_callback)
+      :meck.unload(GenServer)
+    end
+  end
+  
   describe "subscribe/1 and notifications" do
     setup do
       # Make sure registry is clean for these tests

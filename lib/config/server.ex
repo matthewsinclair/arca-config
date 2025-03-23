@@ -200,7 +200,10 @@ defmodule Arca.Config.Server do
   @spec notify_external_change() :: {:ok, :notified}
   def notify_external_change do
     # Get current config snapshot
-    {:ok, config} = GenServer.call(__MODULE__, :get_config)
+    config = case GenServer.call(__MODULE__, :get_config) do
+      {:ok, conf} -> conf
+      conf when is_map(conf) -> conf
+    end
     
     # Add debug logging
     require Logger
