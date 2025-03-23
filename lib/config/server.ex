@@ -247,7 +247,8 @@ defmodule Arca.Config.Server do
 
       {:error, reason} ->
         # Initialize with empty config if there's an error
-        Map.put(state, :load_error, reason)
+        build_cache(%{})
+        %{state | config: %{}, load_error: reason}
     end
 
     {:noreply, new_state}

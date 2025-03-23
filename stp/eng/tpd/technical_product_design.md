@@ -238,3 +238,100 @@ When upgrading from previous versions of Arca.Config:
 3. Update supervision tree if manually starting Arca.Config
 
 For a detailed upgrade guide, see the [Upgrade Prompt](../../prj/st/ST0001_upgrade_prompt.md)
+
+## Handling Missing Configuration Files
+
+When using Arca.Config, you might encounter an issue where the library fails to properly handle non-existent configuration files, resulting in errors like:
+
+```
+Failed to load configuration: Failed to load config file: enoent
+```
+
+### The Problem
+
+The issue occurs in the `Arca.Config.Server` module's `handle_info(:initialize_config, state)` function, which doesn't properly initialize the config field with an empty map when a configuration file doesn't exist yet.
+
+### The Solution
+
+There are two approaches to fix this issue:
+
+#### 1. Using the InitHelper Module
+
+The simplest solution is to use the `Arca.Config.InitHelper` module, which provides functions to ensure your configuration directory and files exist before the Arca.Config system tries to load them.
+
+Here's an example of how to use it in your Application module:
+
+```elixir
+defmodule MyApp.Application do
+  use Application
+  
+  require Logger
+  
+  @impl true
+  def start(_type, _args) do
+    # Initialize config before starting the rest of your application
+    case initialize_config() do
+      {:ok, config_path} ->
+        Logger.info("Configuration initialized at: #{config_path}")
+        
+        # Continue with your regular application startup
+        children = [
+          # Your supervisors and workers here
+        ]
+        
+        opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+        Supervisor.start_link(children, opts)
+        
+      {:error, reason} ->
+        Logger.error("Failed to initialize configuration: #{reason}")
+        {:error, reason}
+    end
+  end
+  
+  defp initialize_config do
+    # Define your default configuration
+    initial_config = %{
+      "app" => %{
+        "name" => "MyApp",
+        "version" => "1.0.0"
+      },
+      # Other default settings
+    }
+    
+    # Initialize with your app name and defaults
+    Arca.Config.InitHelper.init_config(:my_app, initial_config)
+  end
+end
+```
+
+#### 2. Setup a Default Config Location
+
+If you want to use a standard location like `~/.myapp/config.json`, you can use the helper function for this common pattern:
+
+```elixir
+defmodule MyApp.Application do
+  use Application
+  
+  @impl true
+  def start(_type, _args) do
+    # Set up default config in ~/.myapp/config.json
+    {:ok, config_path} = Arca.Config.InitHelper.setup_default_config(:my_app, %{
+      "initialized" => true,
+      "created_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+    })
+    
+    # Continue with application startup
+    # ...
+  end
+end
+```
+
+#### How It Works
+
+The helper functions:
+
+1. Create the configuration directory if it doesn't exist
+2. Create a minimal configuration file if none exists
+3. Set the proper environment variables for Arca.Config
+
+This ensures that by the time Arca.Config tries to load the configuration, the file exists and can be loaded successfully, even if it's just an empty JSON object.

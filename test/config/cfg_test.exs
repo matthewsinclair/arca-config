@@ -118,29 +118,62 @@ defmodule Arca.Config.Cfg.Test do
       end
     end
 
-    test "load invalid configuration file (and fail)" do
-      # Check that if we set up a bad file that load() will fail
-      # Jam some rubbish into the env vars
+    test "load nonexistent configuration file (returns empty config)" do
+      # Check that if we set up a bad file that load() will return an empty config
+      # Jam some nonexistent path into the env vars
       app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
       app_specific_file_var = "#{Cfg.env_var_prefix()}_CONFIG_FILE" 
       System.put_env(app_specific_path_var, "/nonexistent/path/")
       System.put_env(app_specific_file_var, "nonexistent.json")
 
-      # Check that we can load the default configuration file
+      # Check that we get an empty config for a nonexistent file
       case Cfg.load() do
         {:ok, config} ->
-          # won't exec - this file shouldn't exist
-          dbg(config)
-          assert false
+          # Will execute - we should get an empty config
+          assert config != nil
+          assert is_map(config)
+          assert map_size(config) == 0
 
         {:error, reason} ->
-          # will exec
-          assert reason
+          # won't exec - we handle nonexistent files gracefully now
+          dbg(reason)
+          assert false
       end
       
       # Clean up
       System.delete_env(app_specific_path_var)
       System.delete_env(app_specific_file_var)
+    end
+    
+    test "load malformed configuration file (and fail)" do
+      # Create a temporary file with invalid JSON
+      test_dir = Path.join(System.tmp_dir!(), "arca_cfg_test_malformed")
+      File.mkdir_p!(test_dir)
+      test_file = Path.join(test_dir, "malformed.json")
+      File.write!(test_file, "{not_valid_json")
+      
+      # Set environment variables to point to our test file
+      app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
+      app_specific_file_var = "#{Cfg.env_var_prefix()}_CONFIG_FILE" 
+      System.put_env(app_specific_path_var, test_dir)
+      System.put_env(app_specific_file_var, "malformed.json")
+
+      # Check that we properly fail on malformed JSON
+      case Cfg.load() do
+        {:ok, config} ->
+          # won't exec - this file shouldn't parse
+          dbg(config)
+          assert false
+
+        {:error, reason} ->
+          # will exec
+          assert reason =~ "Error parsing config"
+      end
+      
+      # Clean up
+      System.delete_env(app_specific_path_var)
+      System.delete_env(app_specific_file_var)
+      File.rm_rf!(test_dir)
     end
 
     test "inspect config property" do

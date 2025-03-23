@@ -34,18 +34,52 @@ defmodule Arca.Config.FileWatcher do
     GenServer.cast(__MODULE__, {:register_write, token})
   end
   
+  @doc """
+  Ensures the configuration directory and file exist.
+  
+  This function creates the config directory if it doesn't exist
+  and creates an empty config file if one doesn't exist yet.
+  
+  ## Parameters
+    - `initial_config`: Optional map with default configuration values (defaults to empty map)
+  
+  ## Returns
+    - `:ok` if the directory and file were created successfully
+    - `{:error, reason}` if an error occurred
+  """
+  @spec ensure_config_exists(map()) :: :ok | {:error, term()}
+  def ensure_config_exists(initial_config \\ %{}) do
+    config_file = Arca.Config.Cfg.config_file() |> Path.expand()
+    config_dir = Path.dirname(config_file)
+    
+    with :ok <- ensure_directory_exists(config_dir),
+         :ok <- ensure_file_exists(config_file, initial_config) do
+      :ok
+    end
+  end
+  
   # Server callbacks
   
   @impl true
   def init(_) do
-    # Get initial file info
-    config_file = Arca.Config.Cfg.config_file()
-    file_info = get_file_info(config_file)
-    
-    # Schedule first check
-    schedule_check()
-    
-    {:ok, %{config_file: config_file, last_info: file_info, write_token: nil}}
+    # Ensure config directory and file exist
+    case ensure_config_exists() do
+      :ok ->
+        # Get initial file info
+        config_file = Arca.Config.Cfg.config_file()
+        file_info = get_file_info(config_file)
+        
+        # Schedule first check
+        schedule_check()
+        
+        {:ok, %{config_file: config_file, last_info: file_info, write_token: nil}}
+        
+      {:error, reason} ->
+        Logger.error("Failed to ensure config exists: #{reason}")
+        # Continue with what we can
+        config_file = Arca.Config.Cfg.config_file()
+        {:ok, %{config_file: config_file, last_info: nil, write_token: nil}}
+    end
   end
   
   @impl true
@@ -95,5 +129,26 @@ defmodule Arca.Config.FileWatcher do
   defp file_changed?(_, nil), do: true
   defp file_changed?(current, last) do
     current.mtime != last.mtime || current.size != last.size
+  end
+  
+  defp ensure_directory_exists(dir) do
+    case File.mkdir_p(dir) do
+      :ok -> :ok
+      {:error, :eexist} -> :ok
+      {:error, reason} -> {:error, "Failed to create config directory: #{reason}"}
+    end
+  end
+  
+  defp ensure_file_exists(file_path, initial_config) do
+    if !File.exists?(file_path) do
+      content = Jason.encode!(initial_config, pretty: true)
+      
+      case File.write(file_path, content) do
+        :ok -> :ok
+        {:error, reason} -> {:error, "Failed to create config file: #{reason}"}
+      end
+    else
+      :ok
+    end
   end
 end

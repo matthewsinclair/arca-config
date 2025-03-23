@@ -86,6 +86,11 @@ defmodule Arca.Config.Cfg do
     |> handle_decode_result()
   end
 
+  defp handle_file_read_result({:error, :enoent}) do
+    # Return an empty config if the file doesn't exist
+    {:ok, %{}}
+  end
+
   defp handle_file_read_result({:error, reason}),
     do: {:error, "Failed to load config file: #{reason}"}
 
