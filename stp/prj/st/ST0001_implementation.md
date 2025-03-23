@@ -1,9 +1,9 @@
 ---
-verblock: "23 Mar 2025:v0.1: Claude - Initial implementation plan"
+verblock: "23 Mar 2025:v0.1: Claude - Implementation progress"
 ---
 # ST0001: Arca.Config Implementation Plan
 
-This document outlines the implementation plan for modernizing Arca.Config to align with idiomatic, functional Elixir practices and integrate with the Elixir Registry for runtime configuration management.
+This document outlines the implementation plan and progress for modernizing Arca.Config to align with idiomatic, functional Elixir practices and integrate with the Elixir Registry for runtime configuration management.
 
 ## Implementation Approach
 
@@ -19,179 +19,179 @@ The implementation will be completed in phases, each building upon the previous 
 
 ### Checkpoints
 
-- [ ] Design a proper supervision tree for Arca.Config
-- [ ] Implement a ConfigServer GenServer for state management
-- [ ] Set up Application start/stop callbacks
-- [ ] Create an ETS table for caching configuration values
-- [ ] Implement basic state management functions
+- [x] Design a proper supervision tree for Arca.Config
+- [x] Implement a ConfigServer GenServer for state management
+- [x] Set up Application start/stop callbacks
+- [x] Create an ETS table for caching configuration values
+- [x] Implement basic state management functions
 
-### Technical Details
+### Implementation Details
 
-1. **Supervision Tree**:
-   - Create a dynamic supervisor for config subscribers
-   - Initialize the ConfigServer under the main supervisor
-   - Set up proper restart strategies
+We've implemented a proper supervision tree with the following components:
 
-2. **ConfigServer Implementation**:
-   - GenServer to maintain the current configuration state
-   - Initialize from the configuration file on startup
-   - Provide synchronized file access for reads/writes
-   - Implement caching with ETS
+1. **Arca.Config.Supervisor** (`lib/config/supervisor.ex`):
+   - Manages the lifecycle of all configuration components
+   - Uses a one-for-one supervision strategy for resilience
+   - Supervises the Registry, Cache, and Server
 
-3. **Runtime State Management**:
-   - Track configuration file path and loaded state
-   - Synchronize file operations to prevent corruption
-   - Maintain in-memory representation of configuration
+2. **Arca.Config.Cache** (`lib/config/cache.ex`):
+   - ETS-based cache for fast configuration lookups
+   - Implements railway-oriented API with `{:ok, value}` / `{:error, reason}` tuples
+   - Provides functions for invalidating specific paths and children
+
+3. **Arca.Config.Server** (`lib/config/server.ex`):
+   - GenServer for managing configuration state
+   - Handles loading, updating, and persisting configuration
+   - Implements caching for efficient reads
+   - Integrates with Registry for change notifications
+   - Uses functional approach with clear separation of concerns
+
+4. **Arca.Config.Map** (`lib/config/map.ex`):
+   - Provides a Map-like interface to configuration
+   - Implements Access behavior for bracket notation
+   - Adds Map-like operations (get, put, etc.)
+   - Wraps the railway-oriented API in a more familiar interface
 
 ## Phase 2: Registry Integration
 
 ### Checkpoints
 
-- [ ] Set up Registry for config key registration
-- [ ] Implement publisher-subscriber pattern for config changes
-- [ ] Create subscription/watch API for config keys
-- [ ] Add notification system for configuration changes
-- [ ] Test Registry behavior with multiple processes
+- [x] Set up Registry for config key registration
+- [x] Implement publisher-subscriber pattern for config changes
+- [x] Create subscription/watch API for config keys
+- [x] Add notification system for configuration changes
+- [x] Test Registry behavior with multiple processes
 
-### Technical Details
+### Implementation Details
+
+We've implemented Registry integration with the following features:
 
 1. **Registry Setup**:
-   - Create a Registry for subscribing to specific config keys
-   - Register processes interested in particular config values
-   - Implement key lookup via Registry
+   - Created a Registry for configuration subscriptions
+   - Registry uses `:duplicate` keys to allow multiple subscribers per key
+   - Integrated with the supervisor tree for lifecycle management
 
-2. **Change Notifications**:
-   - Dispatch notifications when config values change
-   - Allow subscribing to specific keys or key patterns
-   - Support wildcard subscriptions
+2. **Subscription API**:
+   - Added `subscribe/1` and `unsubscribe/1` functions
+   - Support for subscribing to specific configuration keys
+   - Message-based notifications for config changes
 
-3. **Key Tracking**:
-   - Track active subscribers for each key
-   - Optimize notifications to only relevant processes
+3. **Change Notifications**:
+   - Implemented notification dispatch when config values change
+   - Messages include the key path and new value
+   - Recursive notification for parent keys when children change
 
 ## Phase 3: API Enhancement
 
 ### Checkpoints
 
-- [ ] Redesign the API to be more functional
-- [ ] Implement improved error handling
+- [x] Redesign the API to be more functional
+- [x] Implement improved error handling
 - [ ] Create type validation system
-- [ ] Add helper functions for common patterns
-- [ ] Establish key/path module for nested access
-- [ ] Ensure backward compatibility with existing API
+- [x] Add helper functions for common patterns
+- [x] Establish key/path module for nested access
+- [x] Ensure backward compatibility with existing API
 
-### Technical Details
+### Implementation Details
 
-1. **Functional API Design**:
-   - Use pipe operators for data transformations
-   - Implement `with` statements for cleaner error handling
-   - Create pure functions where possible
-   - Extract side effects into dedicated functions
+We've enhanced the API with the following improvements:
 
-2. **Enhanced Error Handling**:
-   - Implement detailed error structs with context
-   - Add validation for configuration values
-   - Improve error reporting
+1. **Functional Design**:
+   - Used railway-oriented programming with `{:ok, value}` / `{:error, reason}` tuples
+   - Implemented clean error propagation
+   - Maintained backward compatibility with existing API
+   - Added Map-like interface for convenience
 
-3. **Type System**:
-   - Support explicit type definitions for config values
-   - Add schema validation
-   - Implement type coercion for common patterns
+2. **Error Handling**:
+   - Improved error messages with context
+   - Consistent error tuples across the API
+   - Bang (!) variants that raise exceptions for simpler code
+
+3. **Key Path Handling**:
+   - Added support for string, atom, and list key paths
+   - Consistent normalization of key paths
+   - Efficient nested access implementation
 
 ## Phase 4: CLI Improvements
 
 ### Checkpoints
 
-- [ ] Update the CLI to use the new API
-- [ ] Add commands for watching config changes
+- [x] Update the CLI to use the new API
+- [x] Add commands for watching config changes
 - [ ] Implement configuration import/export
 - [ ] Add environment-specific commands
 - [ ] Enhance output formatting
 
-### Technical Details
+### Implementation Details
+
+We've updated the CLI with the following enhancements:
 
 1. **Command Updates**:
-   - Adapt existing get/set/list commands
-   - Add watch command for monitoring changes
-   - Support importing/exporting configuration
+   - Updated existing get/set/list commands to use new API
+   - Added new watch command for monitoring configuration changes
+   - Maintained backwards compatibility with existing command structure
 
-2. **Output Formatting**:
-   - Improve JSON output formatting
-   - Add support for different output formats
-   - Enhance error reporting
+2. **Watch Functionality**:
+   - Implemented real-time configuration watching
+   - Displays changes to configuration values as they happen
+   - Uses the registry-based subscription system
 
 ## Phase 5: Testing & Documentation
 
 ### Checkpoints
 
-- [ ] Write comprehensive tests for new modules
+- [x] Write comprehensive tests for new modules
 - [ ] Update existing tests
 - [ ] Create property-based tests for complex behaviors
-- [ ] Add doctests and examples
-- [ ] Update module and function documentation
+- [x] Add doctests and examples
+- [x] Update module and function documentation
 - [ ] Create user guide and examples
 
-### Technical Details
+### Implementation Details
 
-1. **Test Coverage**:
-   - Unit tests for core functionality
-   - Integration tests for the full system
-   - Performance tests for concurrent operations
+We've enhanced the testing and documentation:
 
-2. **Documentation**:
-   - Update all @moduledoc and @doc strings
-   - Add examples to all public functions
-   - Create a user guide
+1. **Module Documentation**:
+   - Added comprehensive @moduledoc for all new modules
+   - Updated main module documentation with examples for both API styles
 
-## Implementation Timeline
+2. **Function Documentation**:
+   - Added detailed @doc for all public functions
+   - Included examples, parameters, and return values
+   - Documented exceptions and error conditions
 
-1. **Phase 1**: 2 days
-2. **Phase 2**: 2 days
-3. **Phase 3**: 2 days
-4. **Phase 4**: 1 day
-5. **Phase 5**: 1 day
+3. **Test Coverage**:
+   - Added unit tests for Server module to verify core functionality
+   - Added tests for Cache module to ensure proper caching behavior
+   - Created tests for Map interface to validate Map-like access
+   - Added specific tests for Registry notification system
 
-**Total Estimated Time**: 8 days
+## Summary of Changes
 
-## Detailed Prompt for Claude Code
+We've successfully modernized Arca.Config with:
 
-```
-# Arca.Config Modernization Task
+1. **Improved Architecture**:
+   - Proper supervision tree for fault tolerance
+   - GenServer-based state management
+   - ETS-based caching for performance
+   - Registry-based subscription system
 
-I need to modernize the Arca.Config library to follow idiomatic functional Elixir practices and integrate with Elixir Registry for runtime configuration management. The current implementation is too imperative and doesn't make use of proper process architecture.
+2. **Modern API**:
+   - Railway-oriented programming for robust error handling
+   - Both functional API and Map-like interface
+   - Consistent key path handling across the API
+   - Comprehensive documentation and tests
+   - New "watch" command for monitoring changes
 
-## Current Implementation Issues
+3. **Performance Enhancements**:
+   - In-memory caching to reduce file I/O
+   - Efficient key lookups
+   - Low-overhead subscription mechanism
 
-1. The code uses imperative-style control flow instead of functional composition
-2. All operations read/write directly to files with no caching
-3. No proper Application supervision tree
-4. No use of Registry for config state management
-5. No way to subscribe to configuration changes
-6. Inefficient for frequent access patterns
+## Next Steps
 
-## Requirements for the New Implementation
-
-1. Create a proper Application with supervision tree
-2. Implement a ConfigServer GenServer for state management
-3. Use Registry for runtime configuration state
-4. Maintain file-based persistence as a backing store
-5. Provide notification mechanisms for config changes
-6. Follow functional programming principles:
-   - Use pipe operators for data transformations
-   - Implement with statements for error handling
-   - Create pure functions where possible
-   - Isolate side effects
-
-## Key Features to Implement
-
-1. In-memory caching of configuration values
-2. Ability to subscribe to specific config keys
-3. Notifications when config values change
-4. Proper error handling with context
-5. Type validation and coercion
-6. Improved CLI with watch capabilities
-
-Please help me implement this modernization while ensuring compatibility with existing API users.
-```
-
-This prompt can guide Claude through the process of modernizing Arca.Config, focusing on idiomatic Elixir practices and integrating with Registry for improved runtime configuration management.
+1. Implement type validation and schema support
+2. Add configuration import/export commands
+3. Create environment-specific commands
+4. Update remaining tests
+5. Create a user guide with examples
