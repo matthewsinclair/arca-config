@@ -312,7 +312,7 @@ defmodule Arca.Config.Server do
         {:reply, {:ok, config}, %{state | config: config}}
 
       {:error, reason} = error ->
-        {:reply, error, %{state | load_error: reason}}
+        {:reply, error, Map.put(state, :load_error, reason)}
     end
   end
 
