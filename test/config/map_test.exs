@@ -6,7 +6,7 @@ defmodule Arca.Config.MapTest do
   
   setup do
     # Store original environment variables
-    app_name = Arca.Config.Cfg.parent_app() |> to_string()
+    app_name = Arca.Config.Cfg.config_domain() |> to_string()
     app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
     app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
     

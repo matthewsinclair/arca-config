@@ -5,7 +5,7 @@ defmodule Arca.Config.Cfg.Test do
   # Set up temporary test environment for doctests
   setup_all do
     # Set up test paths for doctest
-    app_name = Arca.Config.Cfg.parent_app() |> to_string()
+    app_name = Arca.Config.Cfg.config_domain() |> to_string()
     test_path = System.tmp_dir!()
     app_specific_path = ".#{app_name}"
     test_file = "config_test.json"
@@ -54,7 +54,7 @@ defmodule Arca.Config.Cfg.Test do
       # Get previous env var for config path and file names
       previous_env = System.get_env()
       
-      app_name = Arca.Config.Cfg.parent_app() |> to_string()
+      app_name = Arca.Config.Cfg.config_domain() |> to_string()
       app_specific_path = ".#{app_name}"
       app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
       app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"

@@ -257,6 +257,7 @@ System.put_env("ARCA_CONFIG_FILE", "my_custom_config.json")
 
 # Using application environment in config.exs
 config :arca_config,
+  config_domain: :your_app_name,  # Override config domain detection
   config_path: "/path/to/config/directory",
   config_file: "my_custom_config.json"
 ```

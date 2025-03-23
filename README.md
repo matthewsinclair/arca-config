@@ -53,7 +53,7 @@ Arca Config can also be used as a command-line tool:
 
 ## Configuration
 
-Arca Config automatically derives its configuration from the parent application. For example, if your application is named `:my_app`:
+Arca Config automatically derives its configuration from the config domain. For example, if your application is named `:my_app`:
 
 1. It will first check for a configuration file at `~/.my_app/config.json` in the user's home directory.
 2. If no file is found there, it will then look for `./.my_app/config.json` in the current working directory.
@@ -75,11 +75,12 @@ You can customize the configuration file location in the following ways (in orde
 3. Using application configuration:
    ```elixir
    config :arca_config,
+     config_domain: :your_app_name,  # Override config domain detection
      config_path: "/custom/path/",
      config_file: "custom_config.json"
    ```
 
-4. Default values based on parent application (lowest priority):
+4. Default values based on config domain (lowest priority):
    - Default path: `~/.{app_name}/`
    - Default file: `config.json`
 
@@ -107,4 +108,3 @@ mix docs
 ## License
 
 MIT
-

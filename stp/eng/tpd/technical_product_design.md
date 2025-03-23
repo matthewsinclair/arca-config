@@ -169,6 +169,16 @@ Arca.Config uses two Registry instances:
 1. **Arca.Config.Registry**: For subscribing to changes to specific configuration keys
 2. **Arca.Config.CallbackRegistry**: For registering callback functions to be notified when configuration changes
 
+### Configuration Domain Detection
+
+Arca.Config automatically detects the application's config domain (usually the OTP application name). This discovery works by:
+
+1. Examining the process hierarchy to find the caller's OTP application
+2. Falling back to an explicitly configured domain with `config :arca_config, config_domain: :your_app_name`
+3. Using `:arca_config` as the final fallback
+
+The config domain is used to generate environment variable names and default configuration paths.
+
 ### Subscription Model
 
 The subscription model uses the Registry's duplicate key feature:

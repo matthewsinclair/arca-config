@@ -40,10 +40,10 @@ defmodule Arca.Config.AutoConfigTest do
     :ok
   end
 
-  describe "parent_app/0" do
-    test "returns the parent app name" do
-      # In the test environment, the parent app should be :arca_config
-      assert Cfg.parent_app() == :arca_config
+  describe "config_domain/0" do
+    test "returns the config domain name" do
+      # In the test environment, the config domain should be :arca_config
+      assert Cfg.config_domain() == :arca_config
     end
   end
 
@@ -112,19 +112,19 @@ defmodule Arca.Config.AutoConfigTest do
   end
 
   describe "env_var_prefix/0" do
-    test "returns the uppercase parent app name" do
+    test "returns the uppercase config domain name" do
       assert Cfg.env_var_prefix() == "ARCA_CONFIG"
     end
   end
 
   describe "default_config_path/0" do
-    test "uses parent app name when no override provided" do
+    test "uses config domain name when no override provided" do
       # Reset any application config
       Application.delete_env(:arca_config, :default_config_path)
 
       # We'll just assert the format of the path since we can't easily 
-      # mock the parent app in this environment
-      app_name = Cfg.parent_app() |> to_string()
+      # mock the config domain in this environment
+      app_name = Cfg.config_domain() |> to_string()
       expected_path = ".#{app_name}/"
 
       result = Cfg.default_config_path()

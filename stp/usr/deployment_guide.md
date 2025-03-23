@@ -100,7 +100,7 @@ Configure Arca.Config in your Elixir application configuration files:
 config :arca_config,
   config_path: "/path/to/config/directory",
   config_file: "custom_config.json",
-  parent_app: :your_app_name  # Optional: override parent app name detection
+  config_domain: :your_app_name  # Optional: override config domain detection
 ```
 
 ### Default Configuration File

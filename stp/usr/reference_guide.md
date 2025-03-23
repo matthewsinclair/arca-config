@@ -273,7 +273,7 @@ In your `config.exs` or other config files:
 config :arca_config,
   config_path: "/path/to/config/directory",
   config_file: "custom_config.json",
-  parent_app: :your_app_name  # Override parent app name detection
+  config_domain: :your_app_name  # Override config domain detection
 ```
 
 ### File Format

@@ -2,14 +2,14 @@ defmodule Arca.Config.Cfg do
   @moduledoc """
   Provides a simple programmatic API to a set of configuration properties held in a JSON config file.
 
-  This module automatically derives configuration paths and filenames from the parent application
+  This module automatically derives configuration paths and filenames from the config domain
   if not explicitly configured. For example, if your application is named `:my_app`, the default
   configuration path will be `.my_app/` and will look for environment variables like
   `MY_APP_CONFIG_PATH` unless explicitly overridden.
   """
 
   @doc false
-  def parent_app do
+  def config_domain do
     # Get the OTP application for the calling module
     case Process.get(:"$callers") do
       # If we have caller information
@@ -20,23 +20,23 @@ defmodule Arca.Config.Cfg do
             # Look up the caller's application
             case Keyword.get(dict, :"$initial_call") do
               {mod, _, _} -> Application.get_application(mod)
-              _ -> determine_parent_application()
+              _ -> determine_config_domain()
             end
-          _ -> determine_parent_application()
+          _ -> determine_config_domain()
         end
-      _ -> determine_parent_application()
+      _ -> determine_config_domain()
     end
   end
 
-  defp determine_parent_application do
+  defp determine_config_domain do
     # Fallback method checking application environment
-    Application.get_env(:arca_config, :parent_app) ||
+    Application.get_env(:arca_config, :config_domain) ||
       :arca_config
   end
 
   @doc false
   def env_var_prefix do
-    parent_app() |> to_string() |> String.upcase()
+    config_domain() |> to_string() |> String.upcase()
   end
 
 
@@ -428,30 +428,30 @@ defmodule Arca.Config.Cfg do
   end
 
   @doc """
-  Returns the default configuration path based on the parent application name.
+  Returns the default configuration path based on the config domain name.
 
-  For example, if the parent app is `:my_app`, the default path will be `.my_app/`.
+  For example, if the config domain is `:my_app`, the default path will be `.my_app/`.
   This can be overridden with the `:default_config_path` config option.
 
   This path is within the current working directory.
   """
   def default_config_path do
-    app_name = parent_app() |> to_string()
+    app_name = config_domain() |> to_string()
     default = ".#{app_name}/"
 
     Application.get_env(:arca_config, :default_config_path, default)
   end
 
   @doc """
-  Returns the local configuration path based on the parent application name.
+  Returns the local configuration path based on the config domain name.
 
-  For example, if the parent app is `:my_app`, the local path will be `.my_app/`.
+  For example, if the config domain is `:my_app`, the local path will be `.my_app/`.
   This can be overridden with the `:local_config_path` config option.
 
   This path is within the current working directory.
   """
   def local_config_path do
-    app_name = parent_app() |> to_string()
+    app_name = config_domain() |> to_string()
     default = ".#{app_name}/"
 
     Application.get_env(:arca_config, :local_config_path, default)
