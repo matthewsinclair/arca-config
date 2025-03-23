@@ -1,21 +1,45 @@
 ---
-verblock: "06 Mar 2025:v0.1: Matthew Sinclair - Initial version"
+verblock: "23 Mar 2025:v0.2: Claude-assisted - Added journal entry for completing ST0001"
 ---
 # Project Journal
 
 This document maintains a chronological record of project activities, decisions, and progress. It serves as a historical narrative of the project's development.
 
-## YYYYMMDD
+## 20250323
 
-### [Activity Title]
+### Completed ST0001: Arca.Config Registry Integration and File Watching
 
-[Description of activity, decisions made, challenges encountered, etc.]
+Successfully completed the implementation of ST0001, which involved reconciling Arca.Config with Elixir Registry and adding several important new features:
 
-## YYYYMMDD
+**Achievements:**
+- Integrated Arca.Config with Elixir Registry for robust change subscriptions
+- Implemented file watching capability to detect external changes to config files
+- Added a callback registration system for external code to react to config changes
+- Implemented asynchronous file writes to avoid blocking the server
+- Created a token system to prevent notification loops for self-initiated changes
+- Fixed all tests and improved error handling
+- Added comprehensive documentation in TPD, user guide, reference guide, and deployment guide
+- Created an upgrade prompt for dependent projects
 
-### [Activity Title]
+**Technical Decisions:**
+- Used Registry's duplicate keys feature to support multiple subscribers to the same key
+- Created a separate Registry for callbacks vs. key-specific subscriptions
+- Used periodic file checking (with timestamps) rather than file system watchers for greater portability
+- Implemented parent-key notifications to ensure proper update propagation
+- Made the Cache component more resilient to process failures
+- Used railway-oriented programming with `{:ok, result}/{:error, reason}` tuples throughout
 
-[Description of activity, decisions made, challenges encountered, etc.]
+**Challenges:**
+- Needed to fix test stability issues, particularly with file timestamps
+- Had to address a potential infinite recursion in notification system
+- Needed to carefully structure process handling in tests
+- Had to ensure that the FileWatcher could properly handle token-based tracking
+
+**Next Steps:**
+- Consider encrypted storage for sensitive configuration
+- Explore schema validation for configuration data
+- Add performance benchmarks for large configurations
+- Look into more efficient diffing for configuration changes
 
 ---
 

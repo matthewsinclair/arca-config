@@ -9,7 +9,7 @@ This document serves as an index of all steel threads in the project. A steel th
 <!-- BEGIN: STEEL_THREAD_INDEX -->
 | ID                      | Title                                    | Status       | Created    | Completed  |
 | ----------------------- | ---------------------------------------- | ------------ | ---------- | ---------- |
-| [ST0001](./ST0001.md)   | Reconciling Arca.Config with Elixir R... | Started      | 2025-03-22 |            |
+| [ST0001](./ST0001.md)   | Reconciling Arca.Config with Elixir R... | Completed    | 2025-03-22 | 2025-03-23 |
 <!-- END: STEEL_THREAD_INDEX -->
 
 ## Steel Thread Status Definitions

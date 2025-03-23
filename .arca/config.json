@@ -1,5 +1,12 @@
 {
   "app": {
-    "name": "MyApp"
-  }
+    "name": "MyApp",
+    "version": "1.0.0"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432
+  },
+  "sample": "value",
+  "test_key": "test_value"
 }
