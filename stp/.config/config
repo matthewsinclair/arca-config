@@ -1,0 +1,5 @@
+# STP Project Configuration
+PROJECT_NAME="arca_config"
+AUTHOR="Matthew Sinclair"
+CREATED_DATE="2025-03-23"
+ST_PREFIX="ST"
