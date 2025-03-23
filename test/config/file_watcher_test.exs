@@ -3,9 +3,7 @@ defmodule Arca.Config.FileWatcherTest do
 
   alias Arca.Config.FileWatcher
 
-  # Set this test to be skipped - we've verified the functionality works correctly
-  # but the file watcher test is flaky due to timing issues
-  # @moduletag :skip
+  # Test the file watcher functionality without timing dependencies
 
   setup do
     # Store original environment variables
@@ -118,43 +116,9 @@ defmodule Arca.Config.FileWatcherTest do
   end
 
   test "detects file changes and notifies the server to reload", %{test_file: test_file} do
-    # Override the Server's reload and notify_external_change functions for this test only
+    # Mock the Server functions
     test_pid = self()
     :meck.new(Arca.Config.Server, [:passthrough])
-
-    # First mock the reload function which is called first
-    :meck.expect(Arca.Config.Server, :reload, fn ->
-      # Send a message to the test process to verify this was called
-      send(test_pid, :reload_called)
-      # Return a successful result
-      {:ok, %{}}
-    end)
-
-    # Then mock the notification function which is called second
-    :meck.expect(Arca.Config.Server, :notify_external_change, fn ->
-      send(test_pid, :external_change_notification_called)
-      {:ok, :notified}
-    end)
-
-    # Wait a moment for the file watcher to get the initial state
-    Process.sleep(100)
-
-    # Wait for the file watcher to initialize
-    Process.sleep(100)
-
-    # Wait for everything to stabilize
-    Process.sleep(200)
-
-    # Temporarily remove the mocks to see the actual state
-    :meck.unload(Arca.Config.Server)
-
-    # Force an initial file check to capture current state
-    send(FileWatcher, :check_file)
-    Process.sleep(200)
-
-    # Now set up the mocks again
-    :meck.new(Arca.Config.Server, [:passthrough])
-    test_pid = self()
     :meck.expect(Arca.Config.Server, :reload, fn ->
       send(test_pid, :reload_called)
       {:ok, %{}}
@@ -163,27 +127,45 @@ defmodule Arca.Config.FileWatcherTest do
       send(test_pid, :external_change_notification_called)
       {:ok, :notified}
     end)
-
-    # Make a significant change to the file's content with a unique timestamp
-    timestamp = DateTime.utc_now() |> DateTime.to_string()
-    File.write!(test_file, Jason.encode!(%{"app" => %{"name" => "ExternalUpdate", "timestamp" => timestamp}}, pretty: true))
-
-    # Force the file to be updated with some extra stat operations
-    File.stat!(test_file)
-    File.touch!(test_file)
-
-    # Force multiple file checks with delays to ensure the watcher has time to process changes
-    Process.sleep(100)
-    send(FileWatcher, :check_file)
-    Process.sleep(100)
-    send(FileWatcher, :check_file)
-    Process.sleep(100)
-    send(FileWatcher, :check_file)
-
-    # Verify that both functions were called in the correct order with a longer timeout
-    assert_receive :reload_called, 1000
-    assert_receive :external_change_notification_called, 1000
-
+    
+    # Get the file watcher state
+    _state = :sys.get_state(FileWatcher)
+    
+    # Prepare different file info structs to simulate a change
+    # We'll create "before" and "after" states with different mtimes
+    old_info = %{mtime: {{2022, 1, 1}, {12, 0, 0}}, size: 100}
+    _new_info = %{mtime: {{2023, 1, 1}, {12, 0, 0}}, size: 200}
+    
+    # Now manually call the file watcher's handle_info with our simulated change
+    # This directly tests the logic without relying on file system events
+    {:noreply, _new_state} = 
+      FileWatcher.handle_info(
+        :check_file, 
+        %{config_file: test_file, last_info: old_info, write_token: nil}
+      )
+      
+    # The test above simulates what the GenServer would do when it checks
+    # It's hard to verify because we're simulating the implementation
+    
+    # Let's try a different approach - directly call handle_info with all the right mocks
+    # First, modify the actual file
+    File.write!(test_file, Jason.encode!(%{"app" => %{"name" => "ExternalUpdate"}}, pretty: true))
+    
+    # Get fresh file info that will actually indicate a change compared to old_info
+    {:ok, _real_new_info} = File.stat(test_file)
+    
+    # Directly invoke the handle_info callback with our controlled inputs
+    {:noreply, _} = 
+      FileWatcher.handle_info(
+        :check_file, 
+        %{config_file: test_file, last_info: old_info, write_token: nil}
+      )
+      
+    # Verify both functions were called (these should be almost instant since we're
+    # not waiting for file system events)
+    assert_receive :reload_called, 100
+    assert_receive :external_change_notification_called, 100
+    
     # Clean up
     :meck.unload(Arca.Config.Server)
   end
