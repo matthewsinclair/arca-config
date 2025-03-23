@@ -10,7 +10,28 @@ defmodule Arca.Config.Cfg do
 
   @doc false
   def parent_app do
-    Application.get_application(Arca.Config.Cfg) || :arca_config
+    # Get the OTP application for the calling module
+    case Process.get(:"$callers") do
+      # If we have caller information
+      [caller | _] when is_pid(caller) ->
+        # Get the application for the calling process
+        case Process.info(caller, :dictionary) do
+          {:dictionary, dict} ->
+            # Look up the caller's application
+            case Keyword.get(dict, :"$initial_call") do
+              {mod, _, _} -> Application.get_application(mod)
+              _ -> determine_parent_application()
+            end
+          _ -> determine_parent_application()
+        end
+      _ -> determine_parent_application()
+    end
+  end
+
+  defp determine_parent_application do
+    # Fallback method checking application environment
+    Application.get_env(:arca_config, :parent_app) ||
+      :arca_config
   end
 
   @doc false
