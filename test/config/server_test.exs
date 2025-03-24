@@ -181,6 +181,64 @@ defmodule Arca.Config.ServerTest do
       # Ensure we can read the value back
       assert {:ok, "test_value"} = Server.get("absolute_path_test")
     end
+    
+    test "prevents recursive directory creation with absolute paths", %{test_dir: test_dir} do
+      # Create a test directory structure that will be the target of our absolute path
+      target_dir = Path.join(test_dir, "recursive_test")
+      File.mkdir_p!(target_dir)
+      
+      # Set environment variable to use an absolute path
+      app_name = Arca.Config.Cfg.config_domain() |> to_string()
+      app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
+      app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
+      
+      # Save original environment variables
+      original_path_env = System.get_env(app_specific_path_var)
+      original_file_env = System.get_env(app_specific_file_var)
+      
+      # First set up with relative path (as would happen in problematic setups)
+      local_config_dir = ".temp_config_relative"
+      System.put_env(app_specific_path_var, local_config_dir)
+      System.put_env(app_specific_file_var, "recursive_test.json")
+      
+      # Force a reload to pick up initial relative config location
+      Server.reload()
+      
+      # Write a value to the relative path
+      assert {:ok, "initial_value"} = Server.put("initial_key", "initial_value")
+      
+      # Verify a local config was created
+      local_config_file = Path.join(local_config_dir, "recursive_test.json")
+      assert File.exists?(local_config_file)
+      
+      # Now switch to absolute path mid-operation (this would have triggered the bug before)
+      System.put_env(app_specific_path_var, target_dir)
+      
+      # Write a second config value - this should use the absolute path
+      assert {:ok, "recursive_test_value"} = Server.put("recursive_test_key", "recursive_test_value")
+      
+      # The expected location of the config file
+      config_file = Path.join(target_dir, "recursive_test.json")
+      assert File.exists?(config_file), "Config file not found at expected location: #{config_file}"
+      
+      # Check if a recursive directory structure was created (which would be a bug)
+      # Test for the problematic path that was previously created: ./path/absolute/path/...
+      recursive_path = Path.join([local_config_dir, target_dir])
+      refute File.exists?(recursive_path), "Recursive directory structure was created at: #{recursive_path}"
+      
+      # Check for the most problematic recursive pattern:
+      # Current dir + path component of absolute path
+      path_components = Path.split(target_dir)
+      deep_recursive_path = Path.join([local_config_dir] ++ path_components)
+      refute File.exists?(deep_recursive_path), "Deep recursive directory structure was created at: #{deep_recursive_path}"
+      
+      # Clean up local config directory
+      File.rm_rf!(local_config_dir)
+      
+      # Restore original environment variables
+      if original_path_env, do: System.put_env(app_specific_path_var, original_path_env), else: System.delete_env(app_specific_path_var)
+      if original_file_env, do: System.put_env(app_specific_file_var, original_file_env), else: System.delete_env(app_specific_file_var)
+    end
   end
 
   describe "put!/2" do
