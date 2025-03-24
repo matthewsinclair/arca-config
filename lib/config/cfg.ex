@@ -22,9 +22,13 @@ defmodule Arca.Config.Cfg do
               {mod, _, _} -> Application.get_application(mod)
               _ -> determine_config_domain()
             end
-          _ -> determine_config_domain()
+
+          _ ->
+            determine_config_domain()
         end
-      _ -> determine_config_domain()
+
+      _ ->
+        determine_config_domain()
     end
   end
 
@@ -38,7 +42,6 @@ defmodule Arca.Config.Cfg do
   def env_var_prefix do
     config_domain() |> to_string() |> String.upcase()
   end
-
 
   @doc """
   Loads configuration from the specified file, or auto-detects from configured paths.

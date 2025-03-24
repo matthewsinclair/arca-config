@@ -4,9 +4,9 @@ defmodule Arca.Config do
 
   It allows reading from and writing to a JSON configuration file, with support for
   nested properties using dot notation.
-  
+
   The configuration system supports both a railway-oriented programming style:
-  
+
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
       iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
       iex> File.write!(Path.join(System.tmp_dir(), "doctest_config.json"), "{}")
@@ -15,7 +15,7 @@ defmodule Arca.Config do
       {:ok, "test_value"}
       
   And a Map-like interface via Arca.Config.Map:
-  
+
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
       iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
       iex> File.write!(Path.join(System.tmp_dir(), "doctest_config.json"), "{}")
@@ -26,13 +26,13 @@ defmodule Arca.Config do
   """
 
   use Application
-  
+
   alias Arca.Config.Server
   alias Arca.Config.Supervisor, as: ConfigSupervisor
 
   @doc """
   Handle Application functionality to start the Arca.Config subsystem.
-  
+
   Starts the supervisor tree that manages the configuration system.
   """
   @impl true
@@ -42,14 +42,14 @@ defmodule Arca.Config do
 
   @doc """
   Gets a configuration value.
-  
+
   ## Parameters
     - `key`: A string with dot notation, atom, or list of keys
-  
+
   ## Returns
     - `{:ok, value}` if the key exists
     - `{:error, reason}` if the key doesn't exist or another error occurs
-  
+
   ## Examples
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
       iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
@@ -63,16 +63,16 @@ defmodule Arca.Config do
 
   @doc """
   Gets a configuration value or raises an error if not found.
-  
+
   ## Parameters
     - `key`: A string with dot notation, atom, or list of keys
-  
+
   ## Returns
     - The configuration value if the key exists
-  
+
   ## Raises
     - `RuntimeError` if the key doesn't exist or another error occurs
-  
+
   ## Examples
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
       iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
@@ -87,15 +87,15 @@ defmodule Arca.Config do
 
   @doc """
   Updates a configuration value.
-  
+
   ## Parameters
     - `key`: A string with dot notation, atom, or list of keys
     - `value`: The new value to set
-  
+
   ## Returns
     - `{:ok, value}` if the update was successful
     - `{:error, reason}` if an error occurred
-  
+
   ## Examples
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
       iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
@@ -109,17 +109,17 @@ defmodule Arca.Config do
 
   @doc """
   Updates a configuration value or raises an error if the operation fails.
-  
+
   ## Parameters
     - `key`: A string with dot notation, atom, or list of keys
     - `value`: The new value to set
-  
+
   ## Returns
     - The value if the update was successful
-  
+
   ## Raises
     - `RuntimeError` if an error occurred
-  
+
   ## Examples
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
       iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
@@ -132,16 +132,16 @@ defmodule Arca.Config do
 
   @doc """
   Subscribes to changes to a specific configuration key.
-  
+
   When the value at this key changes, a message of the format
   `{:config_updated, key_path, new_value}` will be sent to the caller.
-  
+
   ## Parameters
     - `key`: A string with dot notation, atom, or list of keys
-  
+
   ## Returns
     - `{:ok, :subscribed}` if the subscription was successful
-  
+
   ## Examples
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
       iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
@@ -155,13 +155,13 @@ defmodule Arca.Config do
 
   @doc """
   Unsubscribes from changes to a specific configuration key.
-  
+
   ## Parameters
     - `key`: A string with dot notation, atom, or list of keys
-  
+
   ## Returns
     - `{:ok, :unsubscribed}` if the unsubscription was successful
-  
+
   ## Examples
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
       iex> System.put_env("ARCA_CONFIG_FILE", "doctest_config.json")
@@ -172,20 +172,20 @@ defmodule Arca.Config do
   """
   @spec unsubscribe(String.t() | atom() | list()) :: {:ok, :unsubscribed}
   def unsubscribe(key), do: Server.unsubscribe(key)
-  
+
   @doc """
   Registers a callback function to be called when the configuration changes externally.
-  
+
   This function is useful for reacting to configuration changes that happen outside
   the application, such as when the configuration file is edited directly.
-  
+
   ## Parameters
     - `callback_id`: A unique identifier for the callback (used for unregistering)
     - `callback_fn`: A function that takes the entire config map as its only parameter
-  
+
   ## Returns
     - `{:ok, :registered}` if the registration was successful
-  
+
   ## Examples
       iex> Registry.start_link(keys: :duplicate, name: Arca.Config.CallbackRegistry)
       iex> callback_fn = fn config -> IO.puts("Config changed: \#{inspect(config)}") end
@@ -193,17 +193,18 @@ defmodule Arca.Config do
       {:ok, :registered}
   """
   @spec register_change_callback(term(), (map() -> any())) :: {:ok, :registered}
-  def register_change_callback(callback_id, callback_fn), do: Server.register_change_callback(callback_id, callback_fn)
-  
+  def register_change_callback(callback_id, callback_fn),
+    do: Server.register_change_callback(callback_id, callback_fn)
+
   @doc """
   Unregisters a previously registered callback function.
-  
+
   ## Parameters
     - `callback_id`: The identifier of the callback to unregister
-  
+
   ## Returns
     - `{:ok, :unregistered}` if the unregistration was successful
-  
+
   ## Examples
       iex> Registry.start_link(keys: :duplicate, name: Arca.Config.CallbackRegistry)
       iex> Arca.Config.unregister_change_callback(:my_callback)
@@ -214,11 +215,11 @@ defmodule Arca.Config do
 
   @doc """
   Reloads the configuration from disk.
-  
+
   ## Returns
     - `{:ok, config}` with the loaded configuration if successful
     - `{:error, reason}` if an error occurred
-  
+
   ## Examples
       iex> app_specific_path_var = Arca.Config.Cfg.env_var_prefix() <> "_CONFIG_PATH"
       iex> app_specific_file_var = Arca.Config.Cfg.env_var_prefix() <> "_CONFIG_FILE"
@@ -252,7 +253,7 @@ defmodule Arca.Config do
 
       ["list" | _] ->
         handle_list()
-        
+
       ["watch", key | _] ->
         handle_watch(key)
 
@@ -335,7 +336,7 @@ defmodule Arca.Config do
   defp process_command({[:set], %{args: %{key: key, value: value}}}) do
     handle_set(key, value)
   end
-  
+
   defp process_command({[:watch], %{args: %{key: key}}}) do
     handle_watch(key)
   end
@@ -381,32 +382,32 @@ defmodule Arca.Config do
         IO.puts("Error: #{reason}")
     end
   end
-  
+
   defp handle_watch(key) do
     # Subscribe to changes for the key
     subscribe(key)
-    
+
     # Print initial value
     IO.puts("Watching #{key}. Current value:")
     handle_get(key)
     IO.puts("\nWaiting for changes... (Press Ctrl+C to exit)")
-    
+
     # Listen for changes
     watch_loop(key)
   end
-  
+
   defp watch_loop(key) do
     receive do
       {:config_updated, key_path, value} ->
         formatted_key = Enum.join(key_path, ".")
         IO.puts("\nConfig updated: #{formatted_key}")
-        
+
         if is_map(value) do
           IO.puts(Jason.encode!(value, pretty: true))
         else
           IO.puts(inspect(value))
         end
-        
+
         watch_loop(key)
     end
   end

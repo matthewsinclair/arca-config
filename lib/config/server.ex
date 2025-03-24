@@ -200,10 +200,11 @@ defmodule Arca.Config.Server do
   @spec notify_external_change() :: {:ok, :notified}
   def notify_external_change do
     # Get current config snapshot
-    config = case GenServer.call(__MODULE__, :get_config) do
-      {:ok, conf} -> conf
-      conf when is_map(conf) -> conf
-    end
+    config =
+      case GenServer.call(__MODULE__, :get_config) do
+        {:ok, conf} -> conf
+        conf when is_map(conf) -> conf
+      end
 
     # Add info logging
     require Logger
@@ -240,17 +241,18 @@ defmodule Arca.Config.Server do
   @impl true
   def handle_info(:initialize_config, state) do
     # Load initial configuration
-    new_state = case LegacyCfg.load() do
-      {:ok, config} ->
-        # Initialize cache with loaded config
-        build_cache(config)
-        %{state | config: config}
+    new_state =
+      case LegacyCfg.load() do
+        {:ok, config} ->
+          # Initialize cache with loaded config
+          build_cache(config)
+          %{state | config: config}
 
-      {:error, reason} ->
-        # Initialize with empty config if there's an error
-        build_cache(%{})
-        %{state | config: %{}, load_error: reason}
-    end
+        {:error, reason} ->
+          # Initialize with empty config if there's an error
+          build_cache(%{})
+          %{state | config: %{}, load_error: reason}
+      end
 
     {:noreply, new_state}
   end
@@ -285,7 +287,7 @@ defmodule Arca.Config.Server do
   def handle_call({:put, key_path, value}, _from, state) do
     # Read current config from file to ensure we have the latest version
     current_config = read_current_config(state.config)
-    
+
     # Update in-memory config (merging with current config from file)
     new_config = put_in_nested(current_config, key_path, value)
 
@@ -320,35 +322,37 @@ defmodule Arca.Config.Server do
         {:reply, error, Map.put(state, :load_error, reason)}
     end
   end
-  
+
   # Read the current configuration from file or fall back to provided config
   defp read_current_config(fallback_config) do
     require Logger
-    
+
     # Get config path details from environment
     app_name = Arca.Config.Cfg.config_domain() |> to_string()
     app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
     app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
-    
-    path = System.get_env(app_specific_path_var) || 
-           System.get_env("ARCA_CONFIG_PATH") || 
-           Arca.Config.Cfg.default_config_path()
-           
-    filename = System.get_env(app_specific_file_var) || 
-               System.get_env("ARCA_CONFIG_FILE") || 
-               Arca.Config.Cfg.default_config_file()
-    
+
+    path =
+      System.get_env(app_specific_path_var) ||
+        System.get_env("ARCA_CONFIG_PATH") ||
+        Arca.Config.Cfg.default_config_path()
+
+    filename =
+      System.get_env(app_specific_file_var) ||
+        System.get_env("ARCA_CONFIG_FILE") ||
+        Arca.Config.Cfg.default_config_file()
+
     # Always use explicit absolute paths
     path = Path.expand(path)
     config_path = Path.join(path, filename)
-    
+
     Logger.debug("Reading config from path: #{config_path}")
-    
+
     with {:ok, content} <- File.read(config_path),
          {:ok, config} <- Jason.decode(content) do
       config
     else
-      error -> 
+      error ->
         Logger.debug("Error reading config file: #{inspect(error)}, using fallback config")
         fallback_config
     end
@@ -366,10 +370,11 @@ defmodule Arca.Config.Server do
 
   # Base case: reached leaf value successfully
   defp get_in_nested(result, []), do: {:ok, result}
-  
+
   # Error case: current position is not a map but we need to go deeper
-  defp get_in_nested(current, [_head | _tail]) when not is_map(current), do: {:error, "Key not found"}
-  
+  defp get_in_nested(current, [_head | _tail]) when not is_map(current),
+    do: {:error, "Key not found"}
+
   # Recursive case: get value at current key and continue
   defp get_in_nested(config, [head | tail]) do
     case Map.get(config, head) do
@@ -387,10 +392,10 @@ defmodule Arca.Config.Server do
   defp put_in_nested(config, [head | tail], value) do
     current_value = get_map_value(config, head)
     updated_value = put_in_nested(current_value, tail, value)
-    
+
     Map.put(config, head, updated_value)
   end
-  
+
   # Helper to ensure we're working with a map for nested operations
   defp get_map_value(config, key) do
     case Map.get(config, key) do
@@ -403,43 +408,45 @@ defmodule Arca.Config.Server do
   # Write configuration to the current config file
   defp write_config(config) do
     require Logger
-    
+
     # Get config path details from environment
     app_name = Arca.Config.Cfg.config_domain() |> to_string()
     app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
     app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
-    
-    path = System.get_env(app_specific_path_var) || 
-           System.get_env("ARCA_CONFIG_PATH") || 
-           Arca.Config.Cfg.default_config_path()
-           
-    filename = System.get_env(app_specific_file_var) || 
-               System.get_env("ARCA_CONFIG_FILE") || 
-               Arca.Config.Cfg.default_config_file()
-    
+
+    path =
+      System.get_env(app_specific_path_var) ||
+        System.get_env("ARCA_CONFIG_PATH") ||
+        Arca.Config.Cfg.default_config_path()
+
+    filename =
+      System.get_env(app_specific_file_var) ||
+        System.get_env("ARCA_CONFIG_FILE") ||
+        Arca.Config.Cfg.default_config_file()
+
     # Always use explicit absolute paths
     path = Path.expand(path)
     config_path = Path.join(path, filename)
-    
+
     # Debug logging
     Logger.debug("Config path: #{path}")
     Logger.debug("Config filename: #{filename}")
     Logger.debug("Full config path: #{config_path}")
-    
+
     # Register a unique write token to avoid self-notifications
     token = System.monotonic_time()
     Arca.Config.FileWatcher.register_write(token)
-    
+
     # Encode configuration
     encoded_config = Jason.encode!(config, pretty: true)
-    
+
     # Ensure parent directory exists - using the absolute path
     ensure_directory(path)
-    
+
     # Write to the absolute path
     write_file_with_logging(config_path, encoded_config)
   end
-  
+
   # Create directory if it doesn't exist
   defp ensure_directory(dir) do
     case File.exists?(dir) do
@@ -447,11 +454,13 @@ defmodule Arca.Config.Server do
       false -> File.mkdir_p!(dir)
     end
   end
-  
+
   # Write to file with error logging
   defp write_file_with_logging(path, content) do
     case File.write(path, content) do
-      :ok -> :ok
+      :ok ->
+        :ok
+
       {:error, reason} ->
         require Logger
         Logger.error("Failed to write config file: #{inspect(reason)}")
@@ -485,22 +494,22 @@ defmodule Arca.Config.Server do
   defp get_notification_paths(key_path, config) do
     get_notification_paths(key_path, config, [])
   end
-  
+
   # Single-key path (no parents to add)
   defp get_notification_paths([_] = key_path, config, paths) do
     add_path_if_exists(key_path, config, paths)
   end
-  
+
   # Multi-level path (need to check for parents)
   defp get_notification_paths(key_path, config, paths) do
     # First add the current path
     updated_paths = add_path_if_exists(key_path, config, paths)
-    
+
     # Then add the parent path
     parent_path = Enum.slice(key_path, 0, length(key_path) - 1)
     get_notification_paths(parent_path, config, updated_paths)
   end
-  
+
   # Add a path to the accumulated list if it exists in the config
   defp add_path_if_exists(key_path, config, paths) do
     case get_in_nested(config, key_path) do

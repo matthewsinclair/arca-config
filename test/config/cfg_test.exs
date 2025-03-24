@@ -11,7 +11,7 @@ defmodule Arca.Config.Cfg.Test do
     test_file = "config_test.json"
     app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
     app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
-    
+
     System.put_env(app_specific_path_var, test_path)
     System.put_env(app_specific_file_var, test_file)
 
@@ -23,12 +23,12 @@ defmodule Arca.Config.Cfg.Test do
     app_config_dir = Path.join(File.cwd!(), app_specific_path)
     app_config_file = Path.join(app_config_dir, "config.json")
     File.mkdir_p!(app_config_dir)
-    
+
     File.write!(
       config_file,
       ~s({"id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON", "database": {"host": "localhost"}})
     )
-    
+
     # Write to app_specific directory too to handle tests that rely on the default path
     File.write!(
       app_config_file,
@@ -53,7 +53,7 @@ defmodule Arca.Config.Cfg.Test do
     setup do
       # Get previous env var for config path and file names
       previous_env = System.get_env()
-      
+
       app_name = Arca.Config.Cfg.config_domain() |> to_string()
       app_specific_path = ".#{app_name}"
       app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
@@ -67,14 +67,14 @@ defmodule Arca.Config.Cfg.Test do
       config_dir = Path.join(File.cwd!(), app_specific_path)
       config_file = Path.join(config_dir, "config.json")
       File.mkdir_p!(config_dir)
-      
+
       File.write!(
         config_file,
         ~s({"id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON", "database": {"host": "localhost"}})
       )
 
       # Put things back how we found them
-      on_exit(fn -> 
+      on_exit(fn ->
         System.put_env(previous_env)
         File.rm(config_file)
       end)
@@ -122,7 +122,7 @@ defmodule Arca.Config.Cfg.Test do
       # Check that if we set up a bad file that load() will return an empty config
       # Jam some nonexistent path into the env vars
       app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
-      app_specific_file_var = "#{Cfg.env_var_prefix()}_CONFIG_FILE" 
+      app_specific_file_var = "#{Cfg.env_var_prefix()}_CONFIG_FILE"
       System.put_env(app_specific_path_var, "/nonexistent/path/")
       System.put_env(app_specific_file_var, "nonexistent.json")
 
@@ -139,22 +139,22 @@ defmodule Arca.Config.Cfg.Test do
           dbg(reason)
           assert false
       end
-      
+
       # Clean up
       System.delete_env(app_specific_path_var)
       System.delete_env(app_specific_file_var)
     end
-    
+
     test "load malformed configuration file (and fail)" do
       # Create a temporary file with invalid JSON
       test_dir = Path.join(System.tmp_dir!(), "arca_cfg_test_malformed")
       File.mkdir_p!(test_dir)
       test_file = Path.join(test_dir, "malformed.json")
       File.write!(test_file, "{not_valid_json")
-      
+
       # Set environment variables to point to our test file
       app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
-      app_specific_file_var = "#{Cfg.env_var_prefix()}_CONFIG_FILE" 
+      app_specific_file_var = "#{Cfg.env_var_prefix()}_CONFIG_FILE"
       System.put_env(app_specific_path_var, test_dir)
       System.put_env(app_specific_file_var, "malformed.json")
 
@@ -169,7 +169,7 @@ defmodule Arca.Config.Cfg.Test do
           # will exec
           assert reason =~ "Error parsing config"
       end
-      
+
       # Clean up
       System.delete_env(app_specific_path_var)
       System.delete_env(app_specific_file_var)
