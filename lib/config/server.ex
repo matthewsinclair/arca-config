@@ -349,10 +349,18 @@ defmodule Arca.Config.Server do
   end
 
   defp put_in_nested(config, [head | tail], value) do
+    # Ensure we're working with a map for nested updates
+    current_value = case Map.get(config, head) do
+      nil -> %{}
+      val when is_map(val) -> val
+      # If the current value is not a map, replace it with an empty map
+      _ -> %{}
+    end
+    
     Map.put(
       config,
       head,
-      put_in_nested(Map.get(config, head, %{}), tail, value)
+      put_in_nested(current_value, tail, value)
     )
   end
 

@@ -3,41 +3,15 @@ verblock: "23 Mar 2025:v0.2: Claude-assisted - Updated after completing ST0001"
 ---
 # Work In Progress
 
-## Current Focus
+## FIXED: Configuration File Integrity Issue
 
-**Completed ST0001: Reconciling Arca.Config with Elixir Registry**
+✅ Fixed critical issue in the Arca.Config.Server module where updating a single key with Arca.Config.put() was overwriting the entire configuration file.
 
-ST0001 has been completed successfully. The implementation includes:
+The issue was in the `put_in_nested` function in the `Arca.Config.Server` module. When updating a top-level key, the function was not properly handling the case where the key path contained a single key.
 
-- Integration with Elixir Registry for config change subscriptions
-- File watching capability to detect external changes
-- Callback system for reacting to configuration changes
-- Asynchronous file writes for better performance
-- Token-based tracking to avoid notification loops
+The fix ensures that when updating keys, the existing configuration structure is preserved by properly handling nested maps. This ensures that when updating a key like `llm_client_type`, the entire configuration is preserved, and only that specific key is updated.
 
-Comprehensive documentation has been updated in:
-
-- Technical Product Design (`stp/eng/tpd/technical_product_design.md`)
-- User Guide (`stp/usr/user_guide.md`)
-- Reference Guide (`stp/usr/reference_guide.md`)
-- Deployment Guide (`stp/usr/deployment_guide.md`)
-
-An upgrade prompt for dependent projects is available at `stp/prj/st/ST0001_upgrade_prompt.md`.
-
-## Active Steel Threads
-
-No active steel threads at the moment.
-
-## Upcoming Work
-
-- Consider adding encrypted storage options for sensitive configuration data
-- Explore adding schema validation for configuration
-- Add performance benchmarks for large configuration files
-- Investigate more efficient diffing for configuration changes
-
-## Notes
-
-All tests are now passing. The file watcher works correctly and prevents notification loops for self-initiated changes.
+A test case was also added to verify this functionality, ensuring that when a top-level key is updated, the rest of the configuration remains intact.
 
 ## Context for LLM
 

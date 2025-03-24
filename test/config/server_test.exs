@@ -230,5 +230,22 @@ defmodule Arca.Config.ServerTest do
       # Should receive notification for database (with updated host)
       assert_receive {:config_updated, ["database"], %{"host" => "new-host", "port" => 5432}}, 500
     end
+    
+    test "preserves existing config when updating a top-level key" do
+      # Set up initial state with the existing test data
+      # We know from the setup that we have app and database keys
+      
+      # Update with a new top-level key
+      Server.put("llm_client_type", "echo")
+      
+      # Verify all original keys are preserved
+      assert {:ok, _app_data} = Server.get("app")
+      assert {:ok, _db_data} = Server.get("database")
+      assert {:ok, "echo"} = Server.get("llm_client_type")
+      
+      # The app and database sections should still have their contents
+      assert {:ok, "TestApp"} = Server.get("app.name")
+      assert {:ok, "localhost"} = Server.get("database.host")
+    end
   end
 end
