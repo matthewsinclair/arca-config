@@ -233,7 +233,8 @@ defmodule Arca.Config.Server do
   def init(_) do
     # Delay cache population to avoid ETS access rights issues
     Process.send_after(self(), :initialize_config, 0)
-    {:ok, %{config: %{}, config_file: LegacyCfg.config_file()}}
+    # Don't cache the config_file path in the state anymore - always get fresh path
+    {:ok, %{config: %{}}}
   end
 
   @impl true
@@ -322,13 +323,34 @@ defmodule Arca.Config.Server do
   
   # Read the current configuration from file or fall back to provided config
   defp read_current_config(fallback_config) do
-    config_file = LegacyCfg.config_file() |> Path.expand()
+    require Logger
     
-    with {:ok, content} <- File.read(config_file),
+    # Get config path details from environment
+    app_name = Arca.Config.Cfg.config_domain() |> to_string()
+    app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
+    app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
+    
+    path = System.get_env(app_specific_path_var) || 
+           System.get_env("ARCA_CONFIG_PATH") || 
+           Arca.Config.Cfg.default_config_path()
+           
+    filename = System.get_env(app_specific_file_var) || 
+               System.get_env("ARCA_CONFIG_FILE") || 
+               Arca.Config.Cfg.default_config_file()
+    
+    # Always use explicit absolute paths
+    path = Path.expand(path)
+    config_path = Path.join(path, filename)
+    
+    Logger.debug("Reading config from path: #{config_path}")
+    
+    with {:ok, content} <- File.read(config_path),
          {:ok, config} <- Jason.decode(content) do
       config
     else
-      _ -> fallback_config
+      error -> 
+        Logger.debug("Error reading config file: #{inspect(error)}, using fallback config")
+        fallback_config
     end
   end
 
@@ -380,9 +402,29 @@ defmodule Arca.Config.Server do
 
   # Write configuration to the current config file
   defp write_config(config) do
-    # Always get the current config file path to ensure we're writing to the right place
-    config_path = LegacyCfg.config_file() |> Path.expand()
-    parent_dir = Path.dirname(config_path)
+    require Logger
+    
+    # Get config path details from environment
+    app_name = Arca.Config.Cfg.config_domain() |> to_string()
+    app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
+    app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
+    
+    path = System.get_env(app_specific_path_var) || 
+           System.get_env("ARCA_CONFIG_PATH") || 
+           Arca.Config.Cfg.default_config_path()
+           
+    filename = System.get_env(app_specific_file_var) || 
+               System.get_env("ARCA_CONFIG_FILE") || 
+               Arca.Config.Cfg.default_config_file()
+    
+    # Always use explicit absolute paths
+    path = Path.expand(path)
+    config_path = Path.join(path, filename)
+    
+    # Debug logging
+    Logger.debug("Config path: #{path}")
+    Logger.debug("Config filename: #{filename}")
+    Logger.debug("Full config path: #{config_path}")
     
     # Register a unique write token to avoid self-notifications
     token = System.monotonic_time()
@@ -391,8 +433,10 @@ defmodule Arca.Config.Server do
     # Encode configuration
     encoded_config = Jason.encode!(config, pretty: true)
     
-    # Ensure directory exists and write file
-    ensure_directory(parent_dir)
+    # Ensure parent directory exists - using the absolute path
+    ensure_directory(path)
+    
+    # Write to the absolute path
     write_file_with_logging(config_path, encoded_config)
   end
   

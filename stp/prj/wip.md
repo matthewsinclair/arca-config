@@ -1,24 +1,61 @@
 ---
-verblock: "23 Mar 2025:v0.2: Claude-assisted - Updated after completing ST0001"
+verblock: "24 Mar 2025:v0.3: Claude-assisted - Fixed critical path handling bug"
 ---
 # Work In Progress
 
-## FIXED: Configuration File Integrity Issue
+## FIXED: Critical Path Handling Bug in Configuration System
 
-✅ Fixed critical issue in the Arca.Config.Server module where updating a single key with Arca.Config.put() was overwriting the entire configuration file.
+✅ Fixed a serious path handling bug in Arca.Config where configuration files were being written to incorrect, recursive directory structures.
 
-The issue was that the config file path was cached at startup time, but could be changed by environment variables later. Additionally, we now always read from the current file before making updates to ensure we're starting with the most up-to-date configuration.
+The critical issue was:
+
+**Path handling bug**: When using absolute paths in config environment variables (e.g., `MULTIPLYER_CONFIG_PATH=/Users/matts/.multiplyer`), the system was creating recursive directory structures like `./.multiplyer/Users/matts/.multiplyer/` and writing config files there instead of to the correct absolute location.
+
+Changes implemented:
+
+1. **Completely rewrote path handling in the Server module:**
+   - Now directly accessing environment variables to get path information
+   - Using consistent path expansion at a single point
+   - Properly handling absolute paths to prevent recursive structures
+   - Adding clear logging of all path information
+
+2. **Eliminated path caching in the Server state:**
+   - Removed cached config_file path from GenServer state
+   - Ensuring environment variable changes are always picked up
+
+3. **Added a dedicated test case:**
+   - Created a test that explicitly verifies correct handling of absolute paths
+   - Confirms configs are written to the exact location specified in env vars
+
+These changes ensure:
+- Configuration is always written to and read from the same location
+- Environment variable changes are immediately respected
+- Recursive directory structures are never created
+- Clear logs show exactly where files are being read from and written to
+
+## FIXED: Configuration File Integrity Issues
+
+✅ Fixed critical issues in the Arca.Config.Server module where updating a single key with Arca.Config.put() was causing problems with configuration files.
+
+Two major issues were addressed:
+
+1. **Config overwrite bug**: The module was overwriting the entire configuration when updating a single key.
+   - Now we always read the latest configuration from file before applying updates
+   - This ensures that when updating a key like `llm_client_type`, all other keys are preserved
+
+2. **Path handling bug**: The module was incorrectly handling file paths, creating files in the wrong locations.
+   - Fixed path handling to always use absolute paths consistently
+   - Added proper expansion of paths to prevent creating files like "Users/matts/.multiplyer" in the wrong location
+   - Added detailed logging to help identify path-related issues
 
 Key improvements:
 
-1. Always use the current config file path from LegacyCfg.config_file() when writing updates
-2. Read the latest configuration from file before applying updates
-3. Create parent directories automatically if they don't exist
+1. More robust path handling with explicit checks for absolute vs. relative paths
+2. Added safeguards to ensure directories exist before writing to files
+3. Enhanced logging to show exactly where files are being read from and written to
 4. Refactored code to use idiomatic Elixir pattern matching and multiple function heads
 
-The fix ensures that when updating keys, the existing configuration structure is preserved. This ensures that when updating a key like `llm_client_type`, the entire configuration is preserved, and only that specific key is updated.
-
-A test case confirms this functionality, verifying that when a top-level key is updated, the rest of the configuration remains intact.
+Test cases confirm that when a top-level key is updated, the rest of the configuration remains intact, and paths are handled correctly across different environments.
 
 ## Context for LLM
 

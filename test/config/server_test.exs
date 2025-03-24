@@ -130,6 +130,41 @@ defmodule Arca.Config.ServerTest do
       assert {:ok, "admin"} = Server.get(["database", "user", "name"])
       assert {:ok, %{"name" => "admin"}} = Server.get(["database", "user"])
     end
+    
+    test "correctly handles absolute paths when writing config", %{test_dir: test_dir} do
+      # Set environment variable to use an absolute path
+      app_name = Arca.Config.Cfg.config_domain() |> to_string()
+      app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
+      app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
+      
+      # Create a special absolute path for this test
+      absolute_path = Path.join(test_dir, "absolute_path_test")
+      File.mkdir_p!(absolute_path)
+      
+      # Set both path and filename to ensure we know the exact location
+      System.put_env(app_specific_path_var, absolute_path)
+      System.put_env(app_specific_file_var, "absolute_test.json")
+      
+      # Force a reload to pick up new config location
+      Server.reload()
+      
+      # Determine where config should be written
+      config_file = Path.join(absolute_path, "absolute_test.json")
+      
+      # Write a config value
+      assert {:ok, "test_value"} = Server.put("absolute_path_test", "test_value")
+      
+      # Check if the config file was created in the right place
+      assert File.exists?(config_file), "Config file not found at expected location: #{config_file}"
+      
+      # Check the content of the file
+      {:ok, content} = File.read(config_file)
+      {:ok, decoded} = Jason.decode(content)
+      assert decoded["absolute_path_test"] == "test_value"
+      
+      # Ensure we can read the value back
+      assert {:ok, "test_value"} = Server.get("absolute_path_test")
+    end
   end
   
   describe "put!/2" do
