@@ -282,11 +282,14 @@ defmodule Arca.Config.Server do
 
   @impl true
   def handle_call({:put, key_path, value}, _from, state) do
-    # Update in-memory config
-    new_config = put_in_nested(state.config, key_path, value)
+    # Read current config from file to ensure we have the latest version
+    current_config = read_current_config(state.config)
+    
+    # Update in-memory config (merging with current config from file)
+    new_config = put_in_nested(current_config, key_path, value)
 
-    # Write to file (always returns :ok due to async implementation)
-    write_config(new_config, state.config_file)
+    # Write to file
+    write_config(new_config)
 
     # Update cache
     Cache.put(key_path, value)
@@ -316,6 +319,18 @@ defmodule Arca.Config.Server do
         {:reply, error, Map.put(state, :load_error, reason)}
     end
   end
+  
+  # Read the current configuration from file or fall back to provided config
+  defp read_current_config(fallback_config) do
+    config_file = LegacyCfg.config_file() |> Path.expand()
+    
+    with {:ok, content} <- File.read(config_file),
+         {:ok, config} <- Jason.decode(content) do
+      config
+    else
+      _ -> fallback_config
+    end
+  end
 
   # Private functions
 
@@ -327,66 +342,76 @@ defmodule Arca.Config.Server do
     |> String.split(".")
   end
 
-  defp get_in_nested(config, key_path) do
-    result = Enum.reduce_while(key_path, config, fn
-      k, acc when is_map(acc) ->
-        case Map.get(acc, k) do
-          nil -> {:halt, nil}
-          value -> {:cont, value}
-        end
-
-      _k, _acc -> {:halt, nil}
-    end)
-
-    case result do
+  # Base case: reached leaf value successfully
+  defp get_in_nested(result, []), do: {:ok, result}
+  
+  # Error case: current position is not a map but we need to go deeper
+  defp get_in_nested(current, [_head | _tail]) when not is_map(current), do: {:error, "Key not found"}
+  
+  # Recursive case: get value at current key and continue
+  defp get_in_nested(config, [head | tail]) do
+    case Map.get(config, head) do
       nil -> {:error, "Key not found"}
-      value -> {:ok, value}
+      value -> get_in_nested(value, tail)
     end
   end
 
+  # Base case: leaf key - directly update the map
   defp put_in_nested(config, [last_key], value) do
     Map.put(config, last_key, value)
   end
 
+  # Recursive case: need to traverse deeper
   defp put_in_nested(config, [head | tail], value) do
-    # Ensure we're working with a map for nested updates
-    current_value = case Map.get(config, head) do
+    current_value = get_map_value(config, head)
+    updated_value = put_in_nested(current_value, tail, value)
+    
+    Map.put(config, head, updated_value)
+  end
+  
+  # Helper to ensure we're working with a map for nested operations
+  defp get_map_value(config, key) do
+    case Map.get(config, key) do
       nil -> %{}
       val when is_map(val) -> val
-      # If the current value is not a map, replace it with an empty map
-      _ -> %{}
+      _non_map -> %{}
     end
-    
-    Map.put(
-      config,
-      head,
-      put_in_nested(current_value, tail, value)
-    )
   end
 
-  defp write_config(config, config_file) do
-    # Generate a unique token for this write operation
+  # Write configuration to the current config file
+  defp write_config(config) do
+    # Always get the current config file path to ensure we're writing to the right place
+    config_path = LegacyCfg.config_file() |> Path.expand()
+    parent_dir = Path.dirname(config_path)
+    
+    # Register a unique write token to avoid self-notifications
     token = System.monotonic_time()
-
-    # Register the write with the FileWatcher to avoid self-notifications
     Arca.Config.FileWatcher.register_write(token)
-
-    # Launch an async task to write the file
-    Task.start(fn ->
-      result = config_file
-      |> Path.expand()
-      |> File.write(Jason.encode!(config, pretty: true))
-
-      case result do
-        :ok -> :ok
-        {:error, reason} ->
-          require Logger
-          Logger.error("Failed to write config file: #{inspect(reason)}")
-      end
-    end)
-
-    # Return immediately without waiting for the write to complete
-    :ok
+    
+    # Encode configuration
+    encoded_config = Jason.encode!(config, pretty: true)
+    
+    # Ensure directory exists and write file
+    ensure_directory(parent_dir)
+    write_file_with_logging(config_path, encoded_config)
+  end
+  
+  # Create directory if it doesn't exist
+  defp ensure_directory(dir) do
+    case File.exists?(dir) do
+      true -> :ok
+      false -> File.mkdir_p!(dir)
+    end
+  end
+  
+  # Write to file with error logging
+  defp write_file_with_logging(path, content) do
+    case File.write(path, content) do
+      :ok -> :ok
+      {:error, reason} ->
+        require Logger
+        Logger.error("Failed to write config file: #{inspect(reason)}")
+    end
   end
 
   defp build_cache(config) do
@@ -412,30 +437,31 @@ defmodule Arca.Config.Server do
     end
   end
 
-  defp get_notification_paths(key_path, config, paths \\ []) do
-    # First add the current path with its value
-    result = get_in_nested(config, key_path)
-
-    updated_paths = case result do
+  # Get all paths that need notification (self and ancestors)
+  defp get_notification_paths(key_path, config) do
+    get_notification_paths(key_path, config, [])
+  end
+  
+  # Single-key path (no parents to add)
+  defp get_notification_paths([_] = key_path, config, paths) do
+    add_path_if_exists(key_path, config, paths)
+  end
+  
+  # Multi-level path (need to check for parents)
+  defp get_notification_paths(key_path, config, paths) do
+    # First add the current path
+    updated_paths = add_path_if_exists(key_path, config, paths)
+    
+    # Then add the parent path
+    parent_path = Enum.slice(key_path, 0, length(key_path) - 1)
+    get_notification_paths(parent_path, config, updated_paths)
+  end
+  
+  # Add a path to the accumulated list if it exists in the config
+  defp add_path_if_exists(key_path, config, paths) do
+    case get_in_nested(config, key_path) do
       {:ok, value} -> [{key_path, value} | paths]
       _ -> paths
-    end
-
-    # Add parent paths if needed
-    if length(key_path) > 1 do
-      parent_path = Enum.slice(key_path, 0, length(key_path) - 1)
-      parent_result = get_in_nested(config, parent_path)
-
-      case parent_result do
-        {:ok, parent_value} ->
-          # Recursively get parent paths
-          get_notification_paths(parent_path, config, [{parent_path, parent_value} | updated_paths])
-
-        _ ->
-          updated_paths
-      end
-    else
-      updated_paths
     end
   end
 end
