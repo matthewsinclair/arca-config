@@ -7,6 +7,34 @@ This document maintains a chronological record of project activities, decisions,
 
 ## 20250325
 
+### Added Delete Functionality to Arca.Config
+
+Added the ability to delete keys from the configuration:
+
+- Implemented `delete/1` and `delete!/1` functions in the API
+- Added server callback for processing delete operations
+- Created recursive `delete_in_nested/2` helper to handle nested key deletion
+- Added proper cache invalidation when keys are deleted
+- Implemented notification of subscribers when keys are deleted
+- Cleans up empty parent maps if a deletion leaves them empty
+- Added unit tests for all delete operations
+- Updated documentation in all guides (user, reference, and technical design)
+
+The delete functionality follows the same pattern as the existing API:
+- `delete/1` returns `{:ok, :deleted}` or `{:error, reason}`
+- `delete!/1` returns `:deleted` or raises an exception
+
+Example usage:
+```elixir
+# Delete a configuration key
+{:ok, :deleted} = Arca.Config.delete("features.deprecated_feature")
+
+# Delete with exceptions
+Arca.Config.delete!("features.another_deprecated_feature")
+```
+
+All tests are passing, and the documentation has been updated to reflect the new functionality.
+
 ### Fixed Path Handling and Environment Variable Preserve Issues
 
 Fixed critical path handling issues in the Arca.Config library that were causing test failures and potentially affecting production use:

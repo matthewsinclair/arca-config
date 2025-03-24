@@ -116,6 +116,42 @@ defmodule Arca.Config.Server do
   end
 
   @doc """
+  Deletes a configuration key and its value.
+
+  ## Parameters
+    - `key`: A dot-separated string or atom path (e.g., "database.host" or [:database, :host])
+
+  ## Returns
+    - `{:ok, :deleted}` if the deletion was successful
+    - `{:error, reason}` if an error occurred
+  """
+  @spec delete(String.t() | atom() | list()) :: {:ok, :deleted} | {:error, term()}
+  def delete(key) do
+    key_path = normalize_key_path(key)
+    GenServer.call(__MODULE__, {:delete, key_path})
+  end
+
+  @doc """
+  Deletes a configuration key and its value or raises an error if the operation fails.
+
+  ## Parameters
+    - `key`: A dot-separated string or atom path (e.g., "database.host" or [:database, :host])
+
+  ## Returns
+    - `:deleted` if the deletion was successful
+
+  ## Raises
+    - `RuntimeError` if an error occurred
+  """
+  @spec delete!(String.t() | atom() | list()) :: :deleted | no_return()
+  def delete!(key) do
+    case delete(key) do
+      {:ok, result} -> result
+      {:error, reason} -> raise RuntimeError, message: "Configuration error: #{reason}"
+    end
+  end
+
+  @doc """
   Reloads the configuration from disk.
 
   ## Returns
@@ -308,6 +344,30 @@ defmodule Arca.Config.Server do
   end
 
   @impl true
+  def handle_call({:delete, key_path}, _from, state) do
+    # Read current config from file to ensure we have the latest version
+    current_config = read_current_config(state.config)
+
+    # Delete the key path from config
+    new_config = delete_in_nested(current_config, key_path)
+
+    # Write to file
+    write_config(new_config)
+
+    # Invalidate cache
+    Cache.invalidate(key_path)
+
+    # Get all paths that need notification (self and ancestors)
+    paths_to_notify = get_notification_paths(key_path, current_config)
+
+    # Send process message to handle notifications asynchronously
+    Process.send(self(), {:notify_paths, paths_to_notify}, [:noconnect])
+
+    # Return success
+    {:reply, {:ok, :deleted}, %{state | config: new_config}}
+  end
+
+  @impl true
   def handle_call(:reload, _from, state) do
     case LegacyCfg.load() do
       {:ok, config} ->
@@ -386,6 +446,35 @@ defmodule Arca.Config.Server do
       nil -> %{}
       val when is_map(val) -> val
       _non_map -> %{}
+    end
+  end
+
+  # Base case: leaf key - delete the key from map
+  defp delete_in_nested(config, [last_key]) do
+    Map.delete(config, last_key)
+  end
+
+  # Recursive case: need to traverse deeper
+  defp delete_in_nested(config, [head | tail]) do
+    case Map.get(config, head) do
+      nil ->
+        # If key doesn't exist, return config unchanged
+        config
+
+      submap when is_map(submap) ->
+        # Go deeper
+        updated_submap = delete_in_nested(submap, tail)
+
+        # If map is empty after deletion, remove it too
+        if map_size(updated_submap) == 0 do
+          Map.delete(config, head)
+        else
+          Map.put(config, head, updated_submap)
+        end
+
+      _non_map ->
+        # If value at key is not a map, can't traverse further, return unchanged
+        config
     end
   end
 

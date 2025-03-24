@@ -320,6 +320,47 @@ defmodule Arca.Config.ServerTest do
     end
   end
 
+  describe "delete/1" do
+    test "deletes a simple top-level key" do
+      assert {:ok, :deleted} = Server.delete("app")
+      assert {:error, _} = Server.get("app")
+      assert {:ok, _} = Server.get("database")
+    end
+
+    test "deletes a nested key" do
+      assert {:ok, :deleted} = Server.delete("database.port")
+
+      # Parent still exists
+      assert {:ok, %{"host" => "localhost"}} = Server.get("database")
+
+      # Deleted key is gone
+      assert {:error, _} = Server.get("database.port")
+    end
+
+    test "returns success when deleting non-existent key" do
+      assert {:ok, :deleted} = Server.delete("non_existent")
+      assert {:ok, :deleted} = Server.delete("database.non_existent")
+    end
+
+    test "properly invalidates the cache" do
+      # First verify the key exists and is cached
+      assert {:ok, "TestApp"} = Server.get("app.name")
+
+      # Delete the key
+      assert {:ok, :deleted} = Server.delete("app.name")
+
+      # Verify it's gone
+      assert {:error, _} = Server.get("app.name")
+    end
+  end
+
+  describe "delete!/1" do
+    test "deletes a key and returns :deleted" do
+      assert :deleted = Server.delete!("app.name")
+      assert {:error, _} = Server.get("app.name")
+    end
+  end
+
   describe "reload/0" do
     test "reloads configuration from disk", %{test_file: test_file} do
       # Modify the file directly

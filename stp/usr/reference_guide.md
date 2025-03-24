@@ -132,6 +132,59 @@ Arca.Config.put!(key_path, value)
 Arca.Config.put!("app.version", "1.1.0")
 ```
 
+#### `delete/1`
+
+Deletes a configuration key and its value.
+
+**Usage:**
+
+```elixir
+Arca.Config.delete(key_path)
+```
+
+**Parameters:**
+
+- `key_path`: A dot-separated string or list representing the path to delete (required)
+
+**Returns:**
+
+- `{:ok, :deleted}` if the deletion was successful
+- `{:error, reason}` if an error occurred
+
+**Example:**
+
+```elixir
+{:ok, :deleted} = Arca.Config.delete("features.deprecated_feature")
+```
+
+#### `delete!/1`
+
+Deletes a configuration key and its value or raises an error.
+
+**Usage:**
+
+```elixir
+Arca.Config.delete!(key_path)
+```
+
+**Parameters:**
+
+- `key_path`: A dot-separated string or list representing the path to delete (required)
+
+**Returns:**
+
+- `:deleted` if the deletion was successful
+
+**Raises:**
+
+- `RuntimeError` if an error occurred
+
+**Example:**
+
+```elixir
+Arca.Config.delete!("features.deprecated_feature")
+```
+
 #### `reload/0`
 
 Reloads the configuration from disk.

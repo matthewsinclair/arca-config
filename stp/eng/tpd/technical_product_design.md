@@ -100,6 +100,8 @@ The API provides simple functions for accessing and modifying configuration:
 - `get!/1`: Get a configuration value or raise if not found
 - `put/2`: Update a configuration value
 - `put!/2`: Update a configuration value or raise if error
+- `delete/1`: Delete a configuration key and its value
+- `delete!/1`: Delete a configuration key or raise if error
 - `reload/0`: Reload configuration from disk
 - `subscribe/1`: Subscribe to changes on a specific key
 - `unsubscribe/1`: Unsubscribe from changes

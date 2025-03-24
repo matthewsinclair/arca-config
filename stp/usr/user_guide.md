@@ -171,6 +171,17 @@ Arca.Config.put([:database, :credentials], %{
   "username" => "new_user",
   "password" => "new_password"
 })
+
+# Delete a configuration key
+case Arca.Config.delete("features.deprecated_feature") do
+  {:ok, :deleted} ->
+    # Handle success
+  {:error, reason} ->
+    # Handle error
+end
+
+# Delete a key with exceptions
+Arca.Config.delete!("features.another_deprecated_feature")
 ```
 
 ### Reloading Configuration
