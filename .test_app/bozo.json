@@ -1,0 +1,9 @@
+{
+  "app": {
+    "name": "MyApp"
+  },
+  "database": {
+    "host": "localhost"
+  },
+  "test_key": "test_value"
+}

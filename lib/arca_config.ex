@@ -37,7 +37,59 @@ defmodule Arca.Config do
   """
   @impl true
   def start(_type, _args) do
-    ConfigSupervisor.start_link([])
+    # Start the supervisor
+    result = ConfigSupervisor.start_link([])
+
+    # Apply environment overrides after the configuration server has started
+    apply_env_overrides()
+
+    result
+  end
+
+  @doc """
+  Applies environment variable overrides to the configuration file.
+
+  Looks for environment variables with the pattern `APP_CONFIG_OVERRIDE_SECTION_KEY`
+  and applies them to the configuration file. For example, if the environment variable
+  `MY_APP_CONFIG_OVERRIDE_DATABASE_HOST` is set to "localhost", it will update
+  the configuration value at `database.host` to "localhost".
+
+  This function automatically converts values to appropriate types (integer, boolean, etc.).
+
+  ## Returns
+    - `:ok` if the operation was successful
+    - `{:error, reason}` if there was an error
+
+  ## Examples
+      iex> System.put_env("MY_APP_CONFIG_OVERRIDE_DATABASE_HOST", "localhost")
+      iex> Arca.Config.apply_env_overrides()
+      :ok
+  """
+  @spec apply_env_overrides() :: :ok | {:error, term()}
+  def apply_env_overrides do
+    # Get the prefix for environment variables
+    env_prefix = Arca.Config.Cfg.env_var_prefix()
+    override_prefix = "#{env_prefix}_CONFIG_OVERRIDE_"
+
+    # Get all environment variables with the override prefix
+    System.get_env()
+    |> Enum.filter(fn {key, _} -> String.starts_with?(key, override_prefix) end)
+    |> Enum.each(fn {key, value} ->
+      # Extract the configuration key path from the environment variable
+      key_path =
+        key
+        |> String.replace_prefix(override_prefix, "")
+        |> String.downcase()
+        |> String.replace("_", ".")
+
+      # Convert the value to the appropriate type
+      converted_value = try_convert_value(value)
+
+      # Update the configuration
+      put(key_path, converted_value)
+    end)
+
+    :ok
   end
 
   @doc """

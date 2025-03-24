@@ -393,13 +393,15 @@ defmodule Arca.Config.Server do
   defp write_config(config) do
     require Logger
 
-    # Use the fixed Arca.Config.Cfg.config_file() function which properly expands paths
+    # Always get a fresh config file path to ensure we have the latest environment settings
+    # This is critical when environment variables change during runtime
     config_path = Arca.Config.Cfg.config_file()
 
     # Extract directory from the full path
     path = Path.dirname(config_path)
 
-    # Ensure we have the expanded path
+    # IMPORTANT: Always fully expand paths to prevent recursive directory creation issues
+    # Path.expand converts paths like "./.config/" or "/abs/path" to their absolute form
     expanded_path = Path.expand(path)
     expanded_config_path = Path.expand(config_path)
 
@@ -423,9 +425,17 @@ defmodule Arca.Config.Server do
 
   # Create directory if it doesn't exist
   defp ensure_directory(dir) do
-    case File.exists?(dir) do
-      true -> :ok
-      false -> File.mkdir_p!(dir)
+    # Always fully expand the directory path to avoid recursive issues
+    expanded_dir = Path.expand(dir)
+
+    case File.exists?(expanded_dir) do
+      true ->
+        :ok
+
+      false ->
+        # Use File.mkdir_p! to create all necessary parent directories
+        # This is safe because we're using the expanded path
+        File.mkdir_p!(expanded_dir)
     end
   end
 
