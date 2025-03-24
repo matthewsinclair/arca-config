@@ -386,3 +386,31 @@ The override mechanism:
 5. Preserves existing configuration values not being overridden
 
 This approach ensures that configuration is consistent regardless of how it was initially set, while providing flexibility for environment-specific deployment configurations.
+
+## Path Handling
+
+Arca.Config takes a special approach to path handling to balance precision with usability:
+
+### Environment Variable Path Preservation
+
+When paths are specified via environment variables (e.g., `MY_APP_CONFIG_PATH=/tmp/`), Arca.Config preserves the exact format, including trailing slashes. This ensures compatibility with tools and scripts that expect precise path formats.
+
+```elixir
+# When set from environment variable
+System.put_env("MY_APP_CONFIG_PATH", "/tmp/")
+Arca.Config.Cfg.config_pathname() # Returns "/tmp/" with trailing slash preserved
+
+# When from application config or defaults
+Application.put_env(:arca_config, :config_path, "/tmp/")
+Arca.Config.Cfg.config_pathname() # Returns "/tmp" with path expanded
+```
+
+### Path Expansion
+
+For non-environment variable paths (from application configuration or defaults), Arca.Config uses `Path.expand/1` to normalize paths, which:
+- Resolves relative paths against the current working directory
+- Expands `~` to the user's home directory
+- Removes trailing slashes for consistency
+- Normalizes path separators
+
+This dual approach ensures both precision for explicit environment variables and normalization for other configuration sources.

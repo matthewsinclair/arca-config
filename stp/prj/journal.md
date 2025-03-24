@@ -5,6 +5,35 @@ verblock: "23 Mar 2025:v0.2: Claude-assisted - Added journal entry for completin
 
 This document maintains a chronological record of project activities, decisions, and progress. It serves as a historical narrative of the project's development.
 
+## 20250325
+
+### Fixed Path Handling and Environment Variable Preserve Issues
+
+Fixed critical path handling issues in the Arca.Config library that were causing test failures and potentially affecting production use:
+
+**Key Fixes:**
+
+- Modified the `config_pathname/0` function to preserve exact path format from environment variables
+- Ensured trailing slashes in paths from environment variables are preserved exactly as specified
+- Updated test assertions to be more resilient to path expansion differences
+- Fixed all compiler warnings in test files to ensure clean compilation with --warnings-as-errors
+
+**Technical Details:**
+
+- Environment variables with trailing slashes (e.g., `/tmp/`) are now preserved exactly as specified
+- Path expansion only occurs for paths not coming from environment variables
+- Updated test assertions to check for expected path patterns rather than strict equality
+- Fixed unused variable warnings by properly marking them as intentionally unused
+
+**Impact:**
+
+- All tests now pass consistently with no warnings or errors
+- Improved compatibility with tools and workflows that expect exact path formats
+- Better adherence to the principle of least surprise when using environment variables for configuration
+- Cleaner codebase with no compiler warnings
+
+This fix helps ensure that Arca.Config behaves predictably in various deployment scenarios, especially when environment variables are used to configure path locations.
+
 ## 20250324
 
 ### Added Environment Variable Overrides to Arca.Config

@@ -265,6 +265,32 @@ Configuration options can be controlled through environment variables:
 | APP_NAME_CONFIG_PATH | App-specific config path override    | None        |
 | APP_NAME_CONFIG_FILE | App-specific config file override    | None        |
 
+### Path Handling
+
+Arca.Config handles configuration paths in a special way to balance precision with usability:
+
+#### Environment Variable Path Preservation
+
+When paths are specified via environment variables, Arca.Config preserves their exact format, including trailing slashes:
+
+```elixir
+# Path from environment variable - preserved exactly as specified
+System.put_env("MY_APP_CONFIG_PATH", "/tmp/")
+Arca.Config.Cfg.config_pathname()  # Returns "/tmp/" with trailing slash preserved
+```
+
+#### Path Normalization
+
+For paths from application configuration or defaults, Arca.Config applies normalization:
+
+```elixir
+# Path from application config - normalized
+Application.put_env(:arca_config, :config_path, "/tmp/")
+Arca.Config.Cfg.config_pathname()  # Returns "/tmp" with trailing slash removed
+```
+
+This helps ensure compatibility with tools that expect specific path formats while maintaining clean path handling for other sources.
+
 ### Application Configuration
 
 In your `config.exs` or other config files:

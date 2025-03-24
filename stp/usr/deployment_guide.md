@@ -98,6 +98,20 @@ export MY_APP_CONFIG_OVERRIDE_DATABASE_PORT="5432"
 export MY_APP_CONFIG_OVERRIDE_FEATURES_DEBUG_MODE="false"
 ```
 
+#### Environment Variable Path Preservation
+
+When specifying configuration paths using environment variables, Arca.Config preserves the exact format of the path, including trailing slashes. This is important for compatibility with tools and scripts that expect specific path formats.
+
+```bash
+# Trailing slash is preserved exactly as specified
+export MY_APP_CONFIG_PATH="/var/config/"
+
+# No trailing slash is also preserved
+export MY_APP_CONFIG_PATH="/var/config"
+```
+
+Path expansion (which would normalize paths and remove trailing slashes) is only applied to paths from application configuration or defaults, not from environment variables.
+
 #### Environment Variable Overrides
 
 Arca.Config supports overriding specific configuration values through environment variables at application startup. This is especially useful for container-based deployments, CI/CD pipelines, and multi-environment configurations.
