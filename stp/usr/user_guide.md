@@ -262,6 +262,37 @@ config :arca_config,
   config_file: "my_custom_config.json"
 ```
 
+### Environment Variable Overrides
+
+Override specific configuration values using environment variables:
+
+```bash
+# Format: APP_NAME_CONFIG_OVERRIDE_SECTION_KEY=value
+# For an app named :my_app
+
+# Override database host
+export MY_APP_CONFIG_OVERRIDE_DATABASE_HOST=production-db.example.com
+
+# Override server port (automatically converted to integer)
+export MY_APP_CONFIG_OVERRIDE_SERVER_PORT=5432
+
+# Enable debug mode (automatically converted to boolean)
+export MY_APP_CONFIG_OVERRIDE_DEBUG_ENABLED=true
+```
+
+Values are applied at application startup and automatically saved to the configuration file. This is particularly useful for:
+
+- Setting environment-specific configuration in production deployments
+- Configuring containerized applications
+- Passing configuration through CI/CD pipelines
+- Temporarily overriding values for testing
+
+The environment variable overrides use smart type conversion:
+- Strings like "true" and "false" become booleans
+- Numeric strings become integers or floats
+- JSON-formatted strings are parsed into maps or lists
+- All other values remain as strings
+
 ## Troubleshooting
 
 ### Common Issues

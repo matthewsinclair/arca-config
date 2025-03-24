@@ -23,12 +23,10 @@ Code.require_file("lib/config/file_watcher.ex")
 Code.require_file("lib/config/init_helper.ex")
 Code.require_file("lib/config/map.ex")
 
-alias Arca.Config.Cfg, as: LegacyCfg
-
 # Helper function to inspect paths for debugging
 defmodule PathDebug do
   def print_paths do
-    config_file = LegacyCfg.config_file()
+    config_file = Arca.Config.Cfg.config_file()
     expanded_path = Path.expand(config_file)
     
     IO.puts("Current directory: #{File.cwd!()}")
@@ -46,7 +44,7 @@ PathDebug.print_paths()
 # Now try writing a config value
 IO.puts("\n=== Attempting to write config ===")
 Application.put_env(:arca_config, :config_domain, :multiplyer)
-config_file_path = LegacyCfg.config_file() |> Path.expand()
+config_file_path = Arca.Config.Cfg.config_file() |> Path.expand()
 IO.puts("Config file should be at: #{config_file_path}")
 
 # Get the current directory structure to show where files are being created

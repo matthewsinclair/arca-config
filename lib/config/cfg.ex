@@ -130,13 +130,17 @@ defmodule Arca.Config.Cfg do
 
     # Guard against nil values
     if home_path && filename do
-      home_config = Path.join(home_path, filename)
+      # IMPORTANT: Always use Path.expand on path components before joining
+      # This prevents creating recursive paths like .multiplyer/Users/matts/.multiplyer/
+      expanded_home_path = Path.expand(home_path)
+      home_config = Path.join(expanded_home_path, filename)
 
       if local_path && filename do
-        local_config = Path.join(local_path, filename)
+        expanded_local_path = Path.expand(local_path)
+        local_config = Path.join(expanded_local_path, filename)
 
         cond do
-          File.exists?(Path.expand(home_config)) -> home_config
+          File.exists?(home_config) -> home_config
           true -> local_config
         end
       else
@@ -169,10 +173,14 @@ defmodule Arca.Config.Cfg do
     app_specific_env_var = "#{env_var_prefix()}_CONFIG_PATH"
     default_arca_env_var = "ARCA_CONFIG_PATH"
 
-    System.get_env(app_specific_env_var) ||
-      System.get_env(default_arca_env_var) ||
-      Application.get_env(:arca_config, :config_path) ||
-      default_config_path()
+    path =
+      System.get_env(app_specific_env_var) ||
+        System.get_env(default_arca_env_var) ||
+        Application.get_env(:arca_config, :config_path) ||
+        default_config_path()
+
+    # Return expanded path to avoid path joining issues
+    Path.expand(path)
   end
 
   @doc """
@@ -196,10 +204,14 @@ defmodule Arca.Config.Cfg do
     app_specific_env_var = "#{env_var_prefix()}_LOCAL_CONFIG_PATH"
     default_arca_env_var = "ARCA_LOCAL_CONFIG_PATH"
 
-    System.get_env(app_specific_env_var) ||
-      System.get_env(default_arca_env_var) ||
-      Application.get_env(:arca_config, :local_config_path) ||
-      local_config_path()
+    path =
+      System.get_env(app_specific_env_var) ||
+        System.get_env(default_arca_env_var) ||
+        Application.get_env(:arca_config, :local_config_path) ||
+        local_config_path()
+
+    # Return expanded path to avoid path joining issues
+    Path.expand(path)
   end
 
   @doc """
@@ -238,10 +250,19 @@ defmodule Arca.Config.Cfg do
     app_specific_env_var = "#{env_var_prefix()}_CONFIG_FILE"
     default_arca_env_var = "ARCA_CONFIG_FILE"
 
-    System.get_env(app_specific_env_var) ||
-      System.get_env(default_arca_env_var) ||
-      Application.get_env(:arca_config, :config_file) ||
-      default_config_file()
+    filename =
+      System.get_env(app_specific_env_var) ||
+        System.get_env(default_arca_env_var) ||
+        Application.get_env(:arca_config, :config_file) ||
+        default_config_file()
+
+    # If filename contains a path, extract just the filename part
+    # This prevents issues like joining .multiplyer/ with /Users/matts/.multiplyer/config.json
+    if String.contains?(filename, "/") do
+      Path.basename(filename)
+    else
+      filename
+    end
   end
 
   @doc """

@@ -327,24 +327,8 @@ defmodule Arca.Config.Server do
   defp read_current_config(fallback_config) do
     require Logger
 
-    # Get config path details from environment
-    app_name = Arca.Config.Cfg.config_domain() |> to_string()
-    app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
-    app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
-
-    path =
-      System.get_env(app_specific_path_var) ||
-        System.get_env("ARCA_CONFIG_PATH") ||
-        Arca.Config.Cfg.default_config_path()
-
-    filename =
-      System.get_env(app_specific_file_var) ||
-        System.get_env("ARCA_CONFIG_FILE") ||
-        Arca.Config.Cfg.default_config_file()
-
-    # Always use explicit absolute paths
-    path = Path.expand(path)
-    config_path = Path.join(path, filename)
+    # Use the fixed Arca.Config.Cfg.config_file() function which properly expands paths
+    config_path = Arca.Config.Cfg.config_file() |> Path.expand()
 
     Logger.debug("Reading config from path: #{config_path}")
 
@@ -409,29 +393,19 @@ defmodule Arca.Config.Server do
   defp write_config(config) do
     require Logger
 
-    # Get config path details from environment
-    app_name = Arca.Config.Cfg.config_domain() |> to_string()
-    app_specific_path_var = "#{String.upcase(app_name)}_CONFIG_PATH"
-    app_specific_file_var = "#{String.upcase(app_name)}_CONFIG_FILE"
+    # Use the fixed Arca.Config.Cfg.config_file() function which properly expands paths
+    config_path = Arca.Config.Cfg.config_file()
 
-    path =
-      System.get_env(app_specific_path_var) ||
-        System.get_env("ARCA_CONFIG_PATH") ||
-        Arca.Config.Cfg.default_config_path()
+    # Extract directory from the full path
+    path = Path.dirname(config_path)
 
-    filename =
-      System.get_env(app_specific_file_var) ||
-        System.get_env("ARCA_CONFIG_FILE") ||
-        Arca.Config.Cfg.default_config_file()
-
-    # Always use explicit absolute paths
-    path = Path.expand(path)
-    config_path = Path.join(path, filename)
+    # Ensure we have the expanded path
+    expanded_path = Path.expand(path)
+    expanded_config_path = Path.expand(config_path)
 
     # Debug logging
-    Logger.debug("Config path: #{path}")
-    Logger.debug("Config filename: #{filename}")
-    Logger.debug("Full config path: #{config_path}")
+    Logger.debug("Config directory: #{expanded_path}")
+    Logger.debug("Full config path: #{expanded_config_path}")
 
     # Register a unique write token to avoid self-notifications
     token = System.monotonic_time()
@@ -441,10 +415,10 @@ defmodule Arca.Config.Server do
     encoded_config = Jason.encode!(config, pretty: true)
 
     # Ensure parent directory exists - using the absolute path
-    ensure_directory(path)
+    ensure_directory(expanded_path)
 
     # Write to the absolute path
-    write_file_with_logging(config_path, encoded_config)
+    write_file_with_logging(expanded_config_path, encoded_config)
   end
 
   # Create directory if it doesn't exist

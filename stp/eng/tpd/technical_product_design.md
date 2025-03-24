@@ -335,3 +335,54 @@ The helper functions:
 3. Set the proper environment variables for Arca.Config
 
 This ensures that by the time Arca.Config tries to load the configuration, the file exists and can be loaded successfully, even if it's just an empty JSON object.
+
+## Environment Variable Overrides
+
+Arca.Config supports overriding configuration values through environment variables at application startup. This feature is particularly useful for deployment scenarios where you need different configuration values in different environments.
+
+### How It Works
+
+1. When Arca.Config starts, it checks for environment variables matching a specific pattern
+2. Variables with the pattern `APP_NAME_CONFIG_OVERRIDE_KEY=value` are automatically applied as configuration overrides
+3. These overrides are written to the configuration file, ensuring consistency between the file and the running configuration
+4. Values are automatically converted to appropriate types (strings, numbers, booleans, JSON objects/arrays)
+
+### Configuration Pattern
+
+Environment variables must follow this pattern:
+
+```
+APP_NAME_CONFIG_OVERRIDE_SECTION_KEY=value
+```
+
+Where:
+- `APP_NAME` is your application name in uppercase
+- `SECTION_KEY` is the configuration path with dots replaced by underscores
+
+### Example Overrides
+
+```bash
+# Override database host
+export MY_APP_CONFIG_OVERRIDE_DATABASE_HOST=production-db.example.com
+
+# Override server port (automatically converted to integer)
+export MY_APP_CONFIG_OVERRIDE_SERVER_PORT=5432
+
+# Enable debug mode (automatically converted to boolean)
+export MY_APP_CONFIG_OVERRIDE_DEBUG_ENABLED=true
+
+# Set a complex value (automatically parsed as JSON)
+export MY_APP_CONFIG_OVERRIDE_FEATURE_FLAGS='{"new_ui": true, "beta_features": false}'
+```
+
+### Implementation Details
+
+The override mechanism:
+
+1. Runs during application startup in the `Arca.Config.start/2` function
+2. Uses the existing configuration writing mechanisms to ensure consistency
+3. Converts values to appropriate types based on string pattern recognition
+4. Logs each override that is applied
+5. Preserves existing configuration values not being overridden
+
+This approach ensures that configuration is consistent regardless of how it was initially set, while providing flexibility for environment-specific deployment configurations.

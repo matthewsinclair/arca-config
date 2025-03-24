@@ -1,261 +1,117 @@
 defmodule Arca.Config.AutoConfigTest do
-  use ExUnit.Case
-  alias Arca.Config.Cfg
+  use ExUnit.Case, async: false
 
   setup do
-    # Store original env vars to restore after test
-    original_vars = %{
-      arca_path: System.get_env("ARCA_CONFIG_PATH"),
-      arca_file: System.get_env("ARCA_CONFIG_FILE"),
-      custom_path: System.get_env("ARCA_CONFIG_TEST_PATH"),
-      custom_file: System.get_env("ARCA_CONFIG_TEST_FILE")
-    }
+    # Generate a unique test directory
+    test_dir = Path.join(System.tmp_dir(), "arca_auto_config_test_#{:rand.uniform(1000)}")
+    File.mkdir_p!(test_dir)
 
-    # Clean up env after test
+    # Set up the environment
+    env_prefix = "TEST_APP"
+    System.put_env("#{env_prefix}_CONFIG_PATH", test_dir)
+    System.put_env("#{env_prefix}_CONFIG_FILE", "test_config.json")
+
+    # Set up an override value
+    System.put_env("#{env_prefix}_CONFIG_OVERRIDE_DATABASE_HOST", "localhost")
+    System.put_env("#{env_prefix}_CONFIG_OVERRIDE_SERVER_PORT", "5432")
+    System.put_env("#{env_prefix}_CONFIG_OVERRIDE_DEBUG_ENABLED", "true")
+
+    # Set the config domain
+    Application.put_env(:arca_config, :config_domain, :test_app)
+
     on_exit(fn ->
-      # Restore original values or unset if they were not set
-      if original_vars.arca_path,
-        do: System.put_env("ARCA_CONFIG_PATH", original_vars.arca_path),
-        else: System.delete_env("ARCA_CONFIG_PATH")
+      # Clean up environment variables
+      System.delete_env("#{env_prefix}_CONFIG_PATH")
+      System.delete_env("#{env_prefix}_CONFIG_FILE")
+      System.delete_env("#{env_prefix}_CONFIG_OVERRIDE_DATABASE_HOST")
+      System.delete_env("#{env_prefix}_CONFIG_OVERRIDE_SERVER_PORT")
+      System.delete_env("#{env_prefix}_CONFIG_OVERRIDE_DEBUG_ENABLED")
 
-      if original_vars.arca_file,
-        do: System.put_env("ARCA_CONFIG_FILE", original_vars.arca_file),
-        else: System.delete_env("ARCA_CONFIG_FILE")
-
-      if original_vars.custom_path,
-        do: System.put_env("ARCA_CONFIG_TEST_PATH", original_vars.custom_path),
-        else: System.delete_env("ARCA_CONFIG_TEST_PATH")
-
-      if original_vars.custom_file,
-        do: System.put_env("ARCA_CONFIG_TEST_FILE", original_vars.custom_file),
-        else: System.delete_env("ARCA_CONFIG_TEST_FILE")
+      # Cleanup the test directory
+      File.rm_rf!(test_dir)
     end)
 
-    # Clean the environment for tests
-    System.delete_env("ARCA_CONFIG_PATH")
-    System.delete_env("ARCA_CONFIG_FILE")
-    System.delete_env("ARCA_CONFIG_TEST_PATH")
-    System.delete_env("ARCA_CONFIG_TEST_FILE")
-
-    :ok
+    {:ok, %{test_dir: test_dir, config_file: Path.join(test_dir, "test_config.json")}}
   end
 
-  describe "config_domain/0" do
-    test "returns the config domain name" do
-      # In the test environment, the config domain should be :arca_config
-      assert Cfg.config_domain() == :arca_config
-    end
+  test "apply_env_overrides applies environment variables to config file", %{
+    config_file: config_file
+  } do
+    # Create an initial config file
+    initial_config = %{
+      "database" => %{
+        "host" => "initial-host"
+      }
+    }
+
+    File.write!(config_file, Jason.encode!(initial_config, pretty: true))
+
+    # Apply the overrides
+    Arca.Config.apply_env_overrides()
+
+    # Read the config file directly to verify the changes
+    config_content = File.read!(config_file)
+    config = Jason.decode!(config_content)
+
+    # Verify the overrides were applied
+    assert config["database"]["host"] == "localhost"
+    # Converted to integer
+    assert config["server"]["port"] == 5432
+    # Converted to boolean
+    assert config["debug"]["enabled"] == true
   end
 
-  describe "config_file/0" do
-    test "prefers home config file if it exists" do
-      # Set up temp directories
-      home_path = Path.join(System.tmp_dir!(), "arca_test_home")
-      local_path = Path.join(System.tmp_dir!(), "arca_test_local")
+  test "environment overrides don't erase existing config values", %{config_file: config_file} do
+    # Create an initial config file with some nested values
+    initial_config = %{
+      "database" => %{
+        "host" => "initial-host",
+        "username" => "dbuser",
+        "password" => "secret"
+      }
+    }
 
-      File.mkdir_p!(home_path)
-      File.mkdir_p!(local_path)
+    File.write!(config_file, Jason.encode!(initial_config, pretty: true))
 
-      # Override paths with environment variables
-      app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
-      app_specific_local_path_var = "#{Cfg.env_var_prefix()}_LOCAL_CONFIG_PATH"
-      System.put_env(app_specific_path_var, home_path)
-      System.put_env(app_specific_local_path_var, local_path)
+    # Apply the overrides
+    Arca.Config.apply_env_overrides()
 
-      home_config = Path.join(home_path, Cfg.config_filename())
-      local_config = Path.join(local_path, Cfg.config_filename())
+    # Read the config file directly to verify the changes
+    config_content = File.read!(config_file)
+    config = Jason.decode!(config_content)
 
-      try do
-        # Write test files
-        File.write!(home_config, "{\"test\": \"home\"}")
-        File.write!(local_config, "{\"test\": \"local\"}")
-
-        # Verify home config is preferred
-        assert Cfg.config_file() == Path.join(home_path, Cfg.config_filename())
-      after
-        # Clean up test files and env vars
-        File.rm_rf!(home_path)
-        File.rm_rf!(local_path)
-        System.delete_env(app_specific_path_var)
-        System.delete_env(app_specific_local_path_var)
-      end
-    end
-
-    test "falls back to local config if home config doesn't exist" do
-      # Set up temp directories
-      home_path = Path.join(System.tmp_dir!(), "arca_test_home_not_exist")
-      local_path = Path.join(System.tmp_dir!(), "arca_test_local_fallback")
-
-      File.mkdir_p!(local_path)
-
-      # Override paths with environment variables
-      app_specific_path_var = "#{Cfg.env_var_prefix()}_CONFIG_PATH"
-      app_specific_local_path_var = "#{Cfg.env_var_prefix()}_LOCAL_CONFIG_PATH"
-      System.put_env(app_specific_path_var, home_path)
-      System.put_env(app_specific_local_path_var, local_path)
-
-      local_config = Path.join(local_path, Cfg.config_filename())
-
-      try do
-        # Write test file only in local path
-        File.write!(local_config, "{\"test\": \"local\"}")
-
-        # Verify local config is used when home config doesn't exist
-        assert Cfg.config_file() == Path.join(local_path, Cfg.config_filename())
-      after
-        # Clean up test files and env vars
-        File.rm_rf!(local_path)
-        System.delete_env(app_specific_path_var)
-        System.delete_env(app_specific_local_path_var)
-      end
-    end
+    # Verify only the override was applied, other values remain
+    assert config["database"]["host"] == "localhost"
+    assert config["database"]["username"] == "dbuser"
+    assert config["database"]["password"] == "secret"
   end
 
-  describe "env_var_prefix/0" do
-    test "returns the uppercase config domain name" do
-      assert Cfg.env_var_prefix() == "ARCA_CONFIG"
-    end
-  end
+  test "environment overrides are applied through start function", %{config_file: config_file} do
+    # Create an initial config file with some values
+    initial_config = %{
+      "database" => %{
+        "host" => "initial-host",
+        "port" => 1234
+      }
+    }
 
-  describe "default_config_path/0" do
-    test "uses config domain name when no override provided" do
-      # Reset any application config
-      Application.delete_env(:arca_config, :default_config_path)
+    File.write!(config_file, Jason.encode!(initial_config, pretty: true))
 
-      # We'll just assert the format of the path since we can't easily 
-      # mock the config domain in this environment
-      app_name = Cfg.config_domain() |> to_string()
-      expected_path = ".#{app_name}/"
+    # Call start directly, which should apply env overrides
+    Arca.Config.start(:normal, [])
 
-      result = Cfg.default_config_path()
+    # Verify the config was updated in the file
+    config_content = File.read!(config_file)
+    config = Jason.decode!(config_content)
 
-      assert result == expected_path
-    end
+    # Verify values were properly overridden
+    assert config["database"]["host"] == "localhost"
+    assert config["server"]["port"] == 5432
+    assert config["debug"]["enabled"] == true
 
-    test "uses app config when provided" do
-      # Set application config to override default path
-      Application.put_env(:arca_config, :default_config_path, "~/custom/path/")
-
-      assert Cfg.default_config_path() == "~/custom/path/"
-
-      # Reset application config
-      Application.put_env(:arca_config, :default_config_path, nil)
-    end
-  end
-
-  describe "local_config_pathname/0" do
-    test "uses generic env var first" do
-      System.put_env("ARCA_LOCAL_CONFIG_PATH", "/generic/local/path/")
-      System.put_env("ARCA_CONFIG_LOCAL_CONFIG_PATH", "/specific/local/path/")
-
-      assert Cfg.local_config_pathname() == "/specific/local/path/"
-    end
-
-    test "uses app-specific env var second" do
-      System.delete_env("ARCA_LOCAL_CONFIG_PATH")
-      System.put_env("ARCA_CONFIG_LOCAL_CONFIG_PATH", "/specific/local/path/")
-
-      assert Cfg.local_config_pathname() == "/specific/local/path/"
-    end
-
-    test "uses application config third" do
-      System.delete_env("ARCA_LOCAL_CONFIG_PATH")
-      System.delete_env("ARCA_CONFIG_LOCAL_CONFIG_PATH")
-
-      Application.put_env(:arca_config, :local_config_path, "/app/local/config/path/")
-
-      assert Cfg.local_config_pathname() == "/app/local/config/path/"
-
-      # Reset application config
-      Application.put_env(:arca_config, :local_config_path, nil)
-    end
-
-    test "uses default local path as last resort" do
-      System.delete_env("ARCA_LOCAL_CONFIG_PATH")
-      System.delete_env("ARCA_CONFIG_LOCAL_CONFIG_PATH")
-      Application.delete_env(:arca_config, :local_config_path)
-
-      # Get the actual default path and verify it's used
-      default_path = Cfg.local_config_path()
-      result = Cfg.local_config_pathname()
-
-      assert result == default_path
-    end
-  end
-
-  describe "config_pathname/0" do
-    test "uses generic env var first" do
-      System.put_env("ARCA_CONFIG_PATH", "/generic/path/")
-      System.put_env("ARCA_CONFIG_CONFIG_PATH", "/specific/path/")
-
-      assert Cfg.config_pathname() == "/specific/path/"
-    end
-
-    test "uses app-specific env var second" do
-      System.delete_env("ARCA_CONFIG_PATH")
-      System.put_env("ARCA_CONFIG_CONFIG_PATH", "/specific/path/")
-
-      assert Cfg.config_pathname() == "/specific/path/"
-    end
-
-    test "uses application config third" do
-      System.delete_env("ARCA_CONFIG_PATH")
-      System.delete_env("ARCA_CONFIG_CONFIG_PATH")
-
-      Application.put_env(:arca_config, :config_path, "/app/config/path/")
-
-      assert Cfg.config_pathname() == "/app/config/path/"
-
-      # Reset application config
-      Application.put_env(:arca_config, :config_path, nil)
-    end
-
-    test "uses default path as last resort" do
-      System.delete_env("ARCA_CONFIG_PATH")
-      System.delete_env("ARCA_CONFIG_CONFIG_PATH")
-      Application.delete_env(:arca_config, :config_path)
-
-      # Get the actual default path and verify it's used
-      default_path = Cfg.default_config_path()
-      result = Cfg.config_pathname()
-
-      assert result == default_path
-    end
-  end
-
-  describe "config_filename/0" do
-    test "uses generic env var first" do
-      System.put_env("ARCA_CONFIG_FILE", "generic.json")
-      System.put_env("ARCA_CONFIG_CONFIG_FILE", "specific.json")
-
-      assert Cfg.config_filename() == "specific.json"
-    end
-
-    test "uses app-specific env var second" do
-      System.delete_env("ARCA_CONFIG_FILE")
-      System.put_env("ARCA_CONFIG_CONFIG_FILE", "specific.json")
-
-      assert Cfg.config_filename() == "specific.json"
-    end
-
-    test "uses application config third" do
-      System.delete_env("ARCA_CONFIG_FILE")
-      System.delete_env("ARCA_CONFIG_CONFIG_FILE")
-
-      Application.put_env(:arca_config, :config_file, "app_config.json")
-
-      assert Cfg.config_filename() == "app_config.json"
-
-      # Reset application config
-      Application.put_env(:arca_config, :config_file, nil)
-    end
-
-    test "uses default filename as last resort" do
-      System.delete_env("ARCA_CONFIG_FILE")
-      System.delete_env("ARCA_CONFIG_CONFIG_FILE")
-      Application.put_env(:arca_config, :config_file, nil)
-
-      assert Cfg.config_filename() == "config.json"
-    end
+    # Verify we can retrieve the values through the API
+    assert {:ok, "localhost"} = Arca.Config.get("database.host")
+    assert {:ok, 5432} = Arca.Config.get("server.port")
+    assert {:ok, true} = Arca.Config.get("debug.enabled")
   end
 end

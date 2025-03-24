@@ -1,7 +1,45 @@
 ---
-verblock: "24 Mar 2025:v0.3: Claude-assisted - Fixed critical path handling bug"
+verblock: "24 Mar 2025:v0.4: Claude-assisted - Added environment variable override support"
 ---
 # Work In Progress
+
+## ADDED: Environment Variable Override Support
+
+✅ Added a new feature to allow overriding specific configuration values using environment variables at application startup.
+
+This enhancement makes the configuration system more flexible for deployment in different environments:
+
+**Environment Variable Overrides**: Users can now set environment variables following the pattern `APP_NAME_CONFIG_OVERRIDE_SECTION_KEY=value` to override specific configuration values at startup. For example, `MY_APP_CONFIG_OVERRIDE_DATABASE_HOST=production-db.example.com`.
+
+Implementation details:
+
+1. **Added `apply_env_overrides()` function to Arca.Config:**
+   - Scans environment variables for the override pattern
+   - Parses keys and values
+   - Applies each override to the configuration
+   - Logs each override that is applied
+
+2. **Integrated with application startup:**
+   - Called from the application's `start/2` function
+   - Ensures overrides are applied before any other components access configuration
+
+3. **Added smart type conversion:**
+   - String values like "true"/"false" converted to boolean
+   - Numeric strings converted to integers or floats
+   - JSON-formatted strings parsed into maps or lists
+   - All other values kept as strings
+
+4. **Updated documentation:**
+   - Added to technical product design
+   - Updated user guide
+   - Added detailed section to deployment guide
+   - Added examples for Docker and other deployment scenarios
+
+This feature enables:
+- Environment-specific configuration in production, staging, and development
+- Easy configuration of containerized applications
+- Passing configuration through CI/CD pipelines
+- Setting credentials and secrets without hardcoding
 
 ## FIXED: Critical Path Handling Bug in Configuration System
 

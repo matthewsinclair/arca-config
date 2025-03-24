@@ -50,6 +50,7 @@ defmodule Arca.Config.FileWatcher do
   """
   @spec ensure_config_exists(map()) :: :ok | {:error, term()}
   def ensure_config_exists(initial_config \\ %{}) do
+    # Use Arca.Config.Cfg.config_file() which now properly expands paths
     config_file = Arca.Config.Cfg.config_file() |> Path.expand()
     config_dir = Path.dirname(config_file)
 

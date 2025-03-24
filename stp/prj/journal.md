@@ -5,6 +5,40 @@ verblock: "23 Mar 2025:v0.2: Claude-assisted - Added journal entry for completin
 
 This document maintains a chronological record of project activities, decisions, and progress. It serves as a historical narrative of the project's development.
 
+## 20250324
+
+### Added Environment Variable Overrides to Arca.Config
+
+Added a new feature to Arca.Config that allows overriding specific configuration values through environment variables at application startup. This enhancement makes the library more useful in containerized and multi-environment deployments.
+
+**Key Features:**
+
+- Support for environment variables that override specific configuration values
+- Automatic type conversion for common data types (booleans, numbers, JSON objects/arrays)
+- Environment variable pattern: `APP_NAME_CONFIG_OVERRIDE_SECTION_KEY=value`
+- Overrides applied during application startup
+- Changes written to the configuration file for consistency
+- Comprehensive documentation in technical design, user guide, and deployment guide
+
+**Technical Implementation:**
+
+- Added `apply_env_overrides/0` function to process environment variables
+- Integrated the function into the application's `start/2` callback
+- Used pattern matching to detect and parse environment variables
+- Implemented smart type conversion based on value pattern recognition
+- Used the existing configuration writing mechanism for consistency
+- Added logging to track which overrides are applied
+
+**Use Cases:**
+
+- Setting environment-specific configuration in production deployments
+- Configuring containerized applications with Docker and Kubernetes
+- Handling configuration in CI/CD pipelines
+- Managing secrets and credentials without hardcoding
+- Supporting multiple deployment environments with the same code base
+
+This feature supports the "configuration as environment variables" pattern popular in cloud-native applications and twelve-factor app methodology.
+
 ## 20250323
 
 ### Completed ST0001: Arca.Config Registry Integration and File Watching
