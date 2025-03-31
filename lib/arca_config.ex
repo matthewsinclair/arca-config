@@ -266,6 +266,56 @@ defmodule Arca.Config do
   def unregister_change_callback(callback_id), do: Server.unregister_change_callback(callback_id)
 
   @doc """
+  Adds a callback function to be called whenever the configuration changes.
+  This callback does not receive any arguments, unlike `register_change_callback/2`.
+
+  ## Parameters
+    - `callback_fn`: A 0-arity function to execute when config changes
+
+  ## Returns
+    - `{:ok, reference}` if the registration was successful, where reference is used to remove the callback
+
+  ## Examples
+      iex> callback_fn = fn -> IO.puts("Config changed!") end
+      iex> {:ok, _ref} = Arca.Config.add_callback(callback_fn)
+  """
+  @spec add_callback(function()) :: {:ok, reference()}
+  def add_callback(callback_fn) when is_function(callback_fn, 0), do: Server.add_callback(callback_fn)
+
+  @doc """
+  Removes a previously registered callback function.
+
+  ## Parameters
+    - `callback_ref`: The reference returned by `add_callback/1`
+
+  ## Returns
+    - `{:ok, :removed}` if the callback was successfully removed
+    - `{:error, :not_found}` if the callback wasn't registered
+
+  ## Examples
+      iex> callback_fn = fn -> IO.puts("Config changed!") end
+      iex> {:ok, ref} = Arca.Config.add_callback(callback_fn)
+      iex> Arca.Config.remove_callback(ref)
+      {:ok, :removed}
+  """
+  @spec remove_callback(reference()) :: {:ok, :removed} | {:error, :not_found}
+  def remove_callback(callback_ref), do: Server.remove_callback(callback_ref)
+
+  @doc """
+  Manually triggers notification of all registered callbacks.
+  This can be useful when you want to force notification after a series of changes.
+
+  ## Returns
+    - `{:ok, :notified}` after all callbacks have been executed
+
+  ## Examples
+      iex> Arca.Config.notify_callbacks()
+      {:ok, :notified}
+  """
+  @spec notify_callbacks() :: {:ok, :notified}
+  def notify_callbacks(), do: Server.notify_callbacks()
+
+  @doc """
   Reloads the configuration from disk.
 
   ## Returns

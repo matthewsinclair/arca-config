@@ -227,6 +227,86 @@ defmodule Arca.Config.Server do
   end
 
   @doc """
+  Adds a callback function to be called whenever the configuration changes.
+  Unlike `register_change_callback/2`, this callback does not receive any arguments.
+
+  ## Parameters
+    - `callback_fn`: A 0-arity function to execute when config changes
+
+  ## Returns
+    - `{:ok, reference}` if the registration was successful, where reference is used to remove the callback
+  """
+  @spec add_callback(function()) :: {:ok, reference()}
+  def add_callback(callback_fn) when is_function(callback_fn, 0) do
+    # Generate a unique reference to identify this callback
+    callback_ref = make_ref()
+    
+    # Register the callback with the registry
+    Registry.register(Arca.Config.SimpleCallbackRegistry, :simple_callback, {callback_ref, callback_fn})
+    
+    # Return the reference for later removal
+    {:ok, callback_ref}
+  end
+
+  @doc """
+  Removes a previously registered callback function.
+
+  ## Parameters
+    - `callback_ref`: The reference returned by `add_callback/1`
+
+  ## Returns
+    - `{:ok, :removed}` if the callback was successfully removed
+    - `{:error, :not_found}` if the callback wasn't registered
+  """
+  @spec remove_callback(reference()) :: {:ok, :removed} | {:error, :not_found}
+  def remove_callback(callback_ref) do
+    # Find the exact pid and value for the callback to unregister
+    case Registry.lookup(Arca.Config.SimpleCallbackRegistry, :simple_callback) |> 
+         Enum.find(fn {_pid, {ref, _fn}} -> ref == callback_ref end) do
+      nil ->
+        {:error, :not_found}
+      {_pid, _value} ->
+        # Unregister the specific pid/value pair
+        Registry.unregister_match(
+          Arca.Config.SimpleCallbackRegistry, 
+          :simple_callback, 
+          {callback_ref, :_}
+        )
+        {:ok, :removed}
+    end
+  end
+
+  @doc """
+  Notifies all registered 0-arity callbacks.
+  This is called automatically whenever the configuration changes.
+
+  ## Returns
+    - `{:ok, :notified}` after all callbacks have been executed
+  """
+  @spec notify_callbacks() :: {:ok, :notified}
+  def notify_callbacks do
+    require Logger
+    
+    # Get number of callbacks for logging
+    registry_entries = Registry.lookup(Arca.Config.SimpleCallbackRegistry, :simple_callback)
+    Logger.debug("Notifying #{length(registry_entries)} simple callbacks")
+    
+    # Execute all registered callbacks
+    Registry.dispatch(Arca.Config.SimpleCallbackRegistry, :simple_callback, fn entries ->
+      for {_pid, {ref, callback_fn}} <- entries do
+        try do
+          callback_fn.()
+        rescue
+          e ->
+            Logger.error("Simple callback error for #{inspect(ref)}: #{inspect(e)}")
+        end
+      end
+    end)
+    
+    {:ok, :notified}
+  end
+
+  @doc """
   Notifies all registered callback functions of an external configuration change.
   This is called by the FileWatcher when it detects changes to the config file.
 
@@ -250,7 +330,6 @@ defmodule Arca.Config.Server do
     # Notify all registered callbacks with current config
     Registry.dispatch(Arca.Config.CallbackRegistry, :config_change, fn entries ->
       for {_process_pid, {id, callback_fn}} <- entries do
-        # Logger.info("Calling callback #{inspect(id)} for process #{inspect(process_pid)}")
         # Execute callback in the process that requested it
         try do
           callback_fn.(config)
@@ -260,6 +339,9 @@ defmodule Arca.Config.Server do
         end
       end
     end)
+
+    # Also notify 0-arity callbacks
+    notify_callbacks()
 
     {:ok, :notified}
   end
@@ -339,6 +421,9 @@ defmodule Arca.Config.Server do
     # Send process message to handle notifications asynchronously
     Process.send(self(), {:notify_paths, paths_to_notify}, [:noconnect])
 
+    # Notify all callbacks of the change
+    notify_callbacks()
+
     # Return success
     {:reply, {:ok, value}, %{state | config: new_config}}
   end
@@ -363,6 +448,9 @@ defmodule Arca.Config.Server do
     # Send process message to handle notifications asynchronously
     Process.send(self(), {:notify_paths, paths_to_notify}, [:noconnect])
 
+    # Notify all callbacks of the change
+    notify_callbacks()
+
     # Return success
     {:reply, {:ok, :deleted}, %{state | config: new_config}}
   end
@@ -374,6 +462,9 @@ defmodule Arca.Config.Server do
         # Clear and rebuild cache
         Cache.clear()
         build_cache(config)
+
+        # Notify all callbacks of the change
+        notify_callbacks()
 
         # Return success
         {:reply, {:ok, config}, %{state | config: config}}
