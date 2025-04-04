@@ -100,8 +100,8 @@ defmodule Arca.Config.FileWatcher do
 
         # Notify external callbacks after reload
         Arca.Config.Server.notify_external_change()
-      else
-        Logger.debug("Config file #{path} changed by our own write, skipping notification")
+        # else
+        #   Logger.debug("Config file #{path} changed by our own write, skipping notification")
       end
     end
 

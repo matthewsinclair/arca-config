@@ -280,7 +280,8 @@ defmodule Arca.Config do
       iex> {:ok, _ref} = Arca.Config.add_callback(callback_fn)
   """
   @spec add_callback(function()) :: {:ok, reference()}
-  def add_callback(callback_fn) when is_function(callback_fn, 0), do: Server.add_callback(callback_fn)
+  def add_callback(callback_fn) when is_function(callback_fn, 0),
+    do: Server.add_callback(callback_fn)
 
   @doc """
   Removes a previously registered callback function.

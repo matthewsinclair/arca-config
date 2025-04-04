@@ -24,7 +24,7 @@ defmodule Arca.Config.Supervisor do
 
       # Registry for external change callbacks
       {Registry, keys: :duplicate, name: Arca.Config.CallbackRegistry},
-      
+
       # Registry for simple 0-arity callbacks
       {Registry, keys: :duplicate, name: Arca.Config.SimpleCallbackRegistry},
 

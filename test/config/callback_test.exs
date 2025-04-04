@@ -77,11 +77,11 @@ defmodule Arca.Config.CallbackTest do
       if not registry_started do
         # Registry is already started, no need to do anything
       end
-      
+
       if not callback_registry_started do
         # Callback Registry is already started, no need to do anything
       end
-      
+
       if not simple_callback_registry_started do
         # Simple Callback Registry is already started, no need to do anything
       end
@@ -130,141 +130,141 @@ defmodule Arca.Config.CallbackTest do
       # Use a unique reference to track callback execution
       test_pid = self()
       callback_fn = fn -> send(test_pid, :callback_executed) end
-      
+
       # Register the callback
       assert {:ok, ref} = Config.add_callback(callback_fn)
       assert is_reference(ref)
-      
+
       # Verify callback was registered correctly
       entries = Registry.lookup(Arca.Config.SimpleCallbackRegistry, :simple_callback)
       assert Enum.any?(entries, fn {_pid, {callback_ref, _fn}} -> callback_ref == ref end)
     end
-    
+
     test "returns error for non-zero-arity functions" do
       assert_raise FunctionClauseError, fn ->
         Config.add_callback(fn _arg -> :ok end)
       end
     end
   end
-  
+
   describe "remove_callback/1" do
     test "removes a registered callback" do
       test_pid = self()
       callback_fn = fn -> send(test_pid, :callback_executed) end
-      
+
       # Register and then remove the callback
       {:ok, ref} = Config.add_callback(callback_fn)
       assert {:ok, :removed} = Config.remove_callback(ref)
-      
+
       # Verify it was removed
       entries = Registry.lookup(Arca.Config.SimpleCallbackRegistry, :simple_callback)
       refute Enum.any?(entries, fn {_pid, {callback_ref, _fn}} -> callback_ref == ref end)
     end
-    
+
     test "returns error for non-existent callback" do
       non_existent_ref = make_ref()
       assert {:error, :not_found} = Config.remove_callback(non_existent_ref)
     end
   end
-  
+
   describe "notify_callbacks/0" do
     test "calls all registered callbacks" do
       # Set up test process to receive messages
       test_pid = self()
-      
+
       # Register multiple callbacks
       callback1 = fn -> send(test_pid, :callback1_executed) end
       callback2 = fn -> send(test_pid, :callback2_executed) end
-      
+
       {:ok, _ref1} = Config.add_callback(callback1)
       {:ok, _ref2} = Config.add_callback(callback2)
-      
+
       # Manually trigger notification
       assert {:ok, :notified} = Config.notify_callbacks()
-      
+
       # Verify all callbacks were executed
       assert_receive :callback1_executed, 500
       assert_receive :callback2_executed, 500
     end
-    
+
     test "continues execution when a callback raises an error" do
       # Set up test process to receive messages
       test_pid = self()
-      
+
       # Register a failing callback and a successful one
       bad_callback = fn -> raise "Intentional test error" end
       good_callback = fn -> send(test_pid, :good_callback_executed) end
-      
+
       {:ok, _bad_ref} = Config.add_callback(bad_callback)
       {:ok, _good_ref} = Config.add_callback(good_callback)
-      
+
       # Notification should complete despite the error
       assert {:ok, :notified} = Config.notify_callbacks()
-      
+
       # Good callback should still execute
       assert_receive :good_callback_executed, 500
     end
   end
-  
+
   describe "automatic callback notification" do
     test "callbacks are notified on put operations" do
       test_pid = self()
       callback_fn = fn -> send(test_pid, :config_changed) end
-      
+
       # Register the callback
       {:ok, _ref} = Config.add_callback(callback_fn)
-      
+
       # Update configuration
       Config.put("test_key", "test_value")
-      
+
       # Verify callback was triggered
       assert_receive :config_changed, 500
     end
-    
+
     test "callbacks are notified on delete operations" do
       test_pid = self()
       callback_fn = fn -> send(test_pid, :config_changed) end
-      
+
       # Add a value to be deleted
       Config.put("temp_key", "temp_value")
-      
+
       # Register the callback
       {:ok, _ref} = Config.add_callback(callback_fn)
-      
+
       # Delete the value
       Server.delete("temp_key")
-      
+
       # Verify callback was triggered
       assert_receive :config_changed, 500
     end
-    
+
     test "callbacks are notified on reload operations" do
       test_pid = self()
       callback_fn = fn -> send(test_pid, :config_changed) end
-      
+
       # Register the callback
       {:ok, _ref} = Config.add_callback(callback_fn)
-      
+
       # Reload configuration
       Config.reload()
-      
+
       # Verify callback was triggered
       assert_receive :config_changed, 500
     end
-    
+
     test "callbacks are notified on external file changes", %{test_file: _test_file} do
       test_pid = self()
       callback_fn = fn -> send(test_pid, :config_changed) end
-      
+
       # Register the callback
       {:ok, _ref} = Config.add_callback(callback_fn)
-      
+
       # Let's directly call notify_external_change to verify callback works
       Arca.Config.Server.notify_external_change()
-      
+
       # Verify callback was triggered
       assert_receive :config_changed, 500
-      
+
       # Now let's validate the integration with the file change detection
       # First clear any pending messages
       receive do
@@ -272,11 +272,11 @@ defmodule Arca.Config.CallbackTest do
       after
         0 -> :ok
       end
-      
+
       # Test the file watcher's response to reload, not the file watching itself
       # which is tested elsewhere
       Server.reload()
-      
+
       # Wait for notification
       assert_receive :config_changed, 500
     end

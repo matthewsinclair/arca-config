@@ -240,10 +240,14 @@ defmodule Arca.Config.Server do
   def add_callback(callback_fn) when is_function(callback_fn, 0) do
     # Generate a unique reference to identify this callback
     callback_ref = make_ref()
-    
+
     # Register the callback with the registry
-    Registry.register(Arca.Config.SimpleCallbackRegistry, :simple_callback, {callback_ref, callback_fn})
-    
+    Registry.register(
+      Arca.Config.SimpleCallbackRegistry,
+      :simple_callback,
+      {callback_ref, callback_fn}
+    )
+
     # Return the reference for later removal
     {:ok, callback_ref}
   end
@@ -261,17 +265,19 @@ defmodule Arca.Config.Server do
   @spec remove_callback(reference()) :: {:ok, :removed} | {:error, :not_found}
   def remove_callback(callback_ref) do
     # Find the exact pid and value for the callback to unregister
-    case Registry.lookup(Arca.Config.SimpleCallbackRegistry, :simple_callback) |> 
-         Enum.find(fn {_pid, {ref, _fn}} -> ref == callback_ref end) do
+    case Registry.lookup(Arca.Config.SimpleCallbackRegistry, :simple_callback)
+         |> Enum.find(fn {_pid, {ref, _fn}} -> ref == callback_ref end) do
       nil ->
         {:error, :not_found}
+
       {_pid, _value} ->
         # Unregister the specific pid/value pair
         Registry.unregister_match(
-          Arca.Config.SimpleCallbackRegistry, 
-          :simple_callback, 
+          Arca.Config.SimpleCallbackRegistry,
+          :simple_callback,
           {callback_ref, :_}
         )
+
         {:ok, :removed}
     end
   end
@@ -286,11 +292,11 @@ defmodule Arca.Config.Server do
   @spec notify_callbacks() :: {:ok, :notified}
   def notify_callbacks do
     require Logger
-    
+
     # Get number of callbacks for logging
-    registry_entries = Registry.lookup(Arca.Config.SimpleCallbackRegistry, :simple_callback)
-    Logger.debug("Notifying #{length(registry_entries)} simple callbacks")
-    
+    # registry_entries = Registry.lookup(Arca.Config.SimpleCallbackRegistry, :simple_callback)
+    # Logger.debug("Notifying #{length(registry_entries)} simple callbacks")
+
     # Execute all registered callbacks
     Registry.dispatch(Arca.Config.SimpleCallbackRegistry, :simple_callback, fn entries ->
       for {_pid, {ref, callback_fn}} <- entries do
@@ -302,7 +308,7 @@ defmodule Arca.Config.Server do
         end
       end
     end)
-    
+
     {:ok, :notified}
   end
 
@@ -481,14 +487,14 @@ defmodule Arca.Config.Server do
     # Use the fixed Arca.Config.Cfg.config_file() function which properly expands paths
     config_path = Arca.Config.Cfg.config_file() |> Path.expand()
 
-    Logger.debug("Reading config from path: #{config_path}")
+    # Logger.debug("Reading config from path: #{config_path}")
 
     with {:ok, content} <- File.read(config_path),
          {:ok, config} <- Jason.decode(content) do
       config
     else
-      error ->
-        Logger.debug("Error reading config file: #{inspect(error)}, using fallback config")
+      _error ->
+        # Logger.debug("Error reading config file: #{inspect(error)}, using fallback config")
         fallback_config
     end
   end
@@ -586,8 +592,8 @@ defmodule Arca.Config.Server do
     expanded_config_path = Path.expand(config_path)
 
     # Debug logging
-    Logger.debug("Config directory: #{expanded_path}")
-    Logger.debug("Full config path: #{expanded_config_path}")
+    # Logger.debug("Config directory: #{expanded_path}")
+    # Logger.debug("Full config path: #{expanded_config_path}")
 
     # Register a unique write token to avoid self-notifications
     token = System.monotonic_time()
