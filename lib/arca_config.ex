@@ -13,7 +13,7 @@ defmodule Arca.Config do
       iex> {:ok, _} = Arca.Config.put("test_key", "test_value")
       iex> Arca.Config.get("test_key")
       {:ok, "test_value"}
-      
+
   And a Map-like interface via Arca.Config.Map:
 
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
