@@ -3,6 +3,38 @@ verblock: "25 Mar 2025:v0.5: Claude-assisted - Fixed path handling and environme
 ---
 # Work In Progress
 
+## ADDED: Fix for Circular Dependencies in Application Startup
+
+✅ Implemented a solution for circular dependencies during application startup, particularly focusing on Arca.Config initialization.
+
+Key components of the implementation:
+
+1. **Created a delayed initialization mechanism:**
+   - Added `Arca.Config.Initializer` GenServer that handles configuration loading after application startup
+   - Implemented a configurable delay (default 500ms) before initialization happens
+   - Added process identity tracking to prevent circular calls during startup
+
+2. **Modified application startup sequence:**
+   - Changed `Arca.Config.start/2` to return immediately after starting the supervisor
+   - Moved environment variable override application to the delayed initialization phase
+   - Added conservative default values during initialization to prevent blocking
+
+3. **Implemented process identity guards:**
+   - Added process tracking to prevent circular dependencies
+   - Provided conservative defaults when accessed during initialization
+   - Created a registry pattern for delayed initialization callbacks
+
+4. **Added callback registration for initialization:**
+   - Created an API for registering callbacks that should run after initialization
+   - Implemented safeguards to ensure callbacks don't cause circular dependencies
+   - Added proper error handling for callback execution
+
+These changes resolve circular dependency issues during application startup by:
+- Ensuring configuration is loaded after the application tree is established
+- Providing reasonable defaults during initialization instead of triggering recursive lookups
+- Allowing dependent components to register for notification after initialization is complete
+- Using process identity tracking to prevent circular dependency cycles
+
 ## FIXED: Path Handling and Environment Variable Preservation Issues
 
 ✅ Fixed an issue in the `config_pathname/0` function that was causing test failures with environment variable paths containing trailing slashes.

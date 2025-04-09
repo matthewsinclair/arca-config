@@ -1,0 +1,11 @@
+{
+  "app": {
+    "name": "MyApp"
+  },
+  "database": {
+    "host": "localhost"
+  },
+  "id": "DOT_SLASH_DOT_LL_SLASH_CONFIG_DOT_JSON",
+  "sample": "value",
+  "test_key": "test_value"
+}

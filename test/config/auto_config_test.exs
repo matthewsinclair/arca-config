@@ -100,6 +100,12 @@ defmodule Arca.Config.AutoConfigTest do
     # Call start directly, which should apply env overrides
     Arca.Config.start(:normal, [])
 
+    # Wait for initialization to complete (initializer uses 500ms delay)
+    :timer.sleep(700)
+
+    # Force a reload to make sure we get the latest values
+    Arca.Config.reload()
+
     # Verify the config was updated in the file
     config_content = File.read!(config_file)
     config = Jason.decode!(config_content)

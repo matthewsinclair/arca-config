@@ -28,11 +28,17 @@ defmodule Arca.Config.Supervisor do
       # Registry for simple 0-arity callbacks
       {Registry, keys: :duplicate, name: Arca.Config.SimpleCallbackRegistry},
 
+      # Registry for initialization callbacks
+      {Registry, keys: :unique, name: Arca.Config.InitRegistry},
+
       # ETS-based cache owner process for configuration values
       Arca.Config.Cache,
 
       # Main configuration server
       {Arca.Config.Server, []},
+
+      # Delayed initialization server to prevent circular dependencies
+      {Arca.Config.Initializer, []},
 
       # File watcher process for detecting external changes
       Arca.Config.FileWatcher

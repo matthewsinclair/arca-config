@@ -38,6 +38,48 @@ defmodule Arca.Config.Server do
   def get(key) do
     key_path = normalize_key_path(key)
 
+    # Check if initialization is complete
+    initializer_available? =
+      try do
+        # Check if the initializer module/process exists
+        Process.whereis(Arca.Config.Initializer) != nil
+      rescue
+        _ -> false
+      end
+
+    if initializer_available? do
+      # Only check if initialization is complete if the initializer is available
+      initialization_complete? =
+        try do
+          Arca.Config.Initializer.initialized?()
+        rescue
+          # If we can't check, assume it's not complete to be safe
+          _ -> false
+        end
+
+      # If we're still initializing, provide conservative defaults
+      if !initialization_complete? do
+        case Cache.get(key_path) do
+          {:ok, value} ->
+            {:ok, value}
+
+          _ ->
+            # During initialization, return empty values rather than triggering more lookups
+            # This prevents circular dependencies during startup
+            default_value_for_type(key_path)
+        end
+      else
+        # Normal path for initialized system
+        normal_get(key_path)
+      end
+    else
+      # Fallback for backward compatibility or if initializer isn't available
+      normal_get(key_path)
+    end
+  end
+
+  # Standard get operation when fully initialized
+  defp normal_get(key_path) do
     # Try to get from cache first
     case Cache.get(key_path) do
       {:ok, value} ->
@@ -54,6 +96,30 @@ defmodule Arca.Config.Server do
           error ->
             error
         end
+    end
+  end
+
+  # Return conservative defaults based on key name patterns
+  defp default_value_for_type(key_path) do
+    key_str = Enum.join(key_path, ".")
+
+    cond do
+      # Return empty maps for common container types
+      String.contains?(key_str, "config") -> {:ok, %{}}
+      String.contains?(key_str, "settings") -> {:ok, %{}}
+      String.contains?(key_str, "options") -> {:ok, %{}}
+      # Return empty list for collection types
+      String.contains?(key_str, "list") -> {:ok, []}
+      String.contains?(key_str, "items") -> {:ok, []}
+      # Return empty string for common string types
+      String.contains?(key_str, "name") -> {:ok, ""}
+      String.contains?(key_str, "path") -> {:ok, ""}
+      String.contains?(key_str, "file") -> {:ok, ""}
+      # Return false for boolean types
+      String.contains?(key_str, "enabled") -> {:ok, false}
+      String.contains?(key_str, "active") -> {:ok, false}
+      # Default empty value
+      true -> {:ok, nil}
     end
   end
 
@@ -356,29 +422,18 @@ defmodule Arca.Config.Server do
 
   @impl true
   def init(_) do
-    # Delay cache population to avoid ETS access rights issues
-    Process.send_after(self(), :initialize_config, 0)
+    # Start with empty configuration - the Initializer will load it properly
     # Don't cache the config_file path in the state anymore - always get fresh path
-    {:ok, %{config: %{}}}
+    {:ok, %{config: %{}, initializing: false}}
   end
 
+  # Keep the initialize_config handler for backwards compatibility
+  # but delegate to the Initializer instead of doing work here
   @impl true
   def handle_info(:initialize_config, state) do
-    # Load initial configuration
-    new_state =
-      case LegacyCfg.load() do
-        {:ok, config} ->
-          # Initialize cache with loaded config
-          build_cache(config)
-          %{state | config: config}
-
-        {:error, reason} ->
-          # Initialize with empty config if there's an error
-          build_cache(%{})
-          %{state | config: %{}, load_error: reason}
-      end
-
-    {:noreply, new_state}
+    # This is now handled by Arca.Config.Initializer
+    # No-op to maintain backward compatibility
+    {:noreply, state}
   end
 
   @impl true

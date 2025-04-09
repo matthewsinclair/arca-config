@@ -34,16 +34,14 @@ defmodule Arca.Config do
   Handle Application functionality to start the Arca.Config subsystem.
 
   Starts the supervisor tree that manages the configuration system.
+  Environment overrides are now applied by the initializer to prevent
+  circular dependencies during startup.
   """
   @impl true
   def start(_type, _args) do
-    # Start the supervisor
-    result = ConfigSupervisor.start_link([])
-
-    # Apply environment overrides after the configuration server has started
-    apply_env_overrides()
-
-    result
+    # Start the supervisor without applying environment overrides
+    # (they'll be applied by the initializer)
+    ConfigSupervisor.start_link([])
   end
 
   @doc """
