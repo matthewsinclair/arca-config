@@ -133,23 +133,16 @@ defmodule Arca.Config.AutoConfigTest do
 
   test "explicitly tests directory setup and cleanup", %{config_file: _config_file} do
     # This test explicitly creates the .test_app directory to ensure cleanup works
-    {:ok, home_config_path} =
+    {:ok, config_path} =
       Arca.Config.InitHelper.setup_default_config(:test_app, %{"test" => "value"})
 
-    # Verify the directory was created
-    test_app_dir = Path.join(System.user_home!(), ".test_app")
-    assert File.exists?(test_app_dir)
-    assert File.exists?(home_config_path)
+    # Verify the directory was created - should now be in the project dir, not home
+    project_dir = Path.join(File.cwd!(), ".test_app")
+    assert File.exists?(project_dir)
+    assert File.exists?(config_path)
 
-    # Also check if we have project-relative directories
-    project_test_app = Path.join(File.cwd!(), ".test_app")
-    parent_test_app = Path.join(Path.dirname(File.cwd!()), ".test_app")
-
-    # Log the locations being checked
-    IO.puts("Checking locations for cleanup:")
-    IO.puts("  Home: #{test_app_dir}")
-    IO.puts("  Project: #{project_test_app}")
-    IO.puts("  Parent: #{parent_test_app}")
+    # Log the location being used
+    IO.puts("Created test config at: #{config_path}")
 
     # Directory should be cleaned up automatically in on_exit callback
   end

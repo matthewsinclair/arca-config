@@ -57,7 +57,9 @@ defmodule Arca.Config.InitHelper do
   @spec setup_default_config(atom(), map()) :: {:ok, String.t()} | {:error, term()}
   def setup_default_config(app_name, initial_config \\ %{}) do
     app_str = to_string(app_name)
-    config_dir = Path.join(System.user_home!(), ".#{app_str}")
+    # Use the current directory instead of home directory
+    # This keeps all test files contained within the project
+    config_dir = Path.join(File.cwd!(), ".#{app_str}")
     config_file = Path.join(config_dir, "config.json")
 
     # Set environment variables to override defaults
