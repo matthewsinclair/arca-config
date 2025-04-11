@@ -8,34 +8,95 @@ defmodule Arca.Config.Cfg do
   `MY_APP_CONFIG_PATH` unless explicitly overridden.
   """
 
+  # Cache for storing the resolved config domain
+  @domain_cache_key :arca_config_domain_cache
+
   @doc false
   def config_domain do
-    # Get the OTP application for the calling module
-    case Process.get(:"$callers") do
-      # If we have caller information
-      [caller | _] when is_pid(caller) ->
-        # Get the application for the calling process
-        case Process.info(caller, :dictionary) do
-          {:dictionary, dict} ->
-            # Look up the caller's application
-            case Keyword.get(dict, :"$initial_call") do
-              {mod, _, _} -> Application.get_application(mod)
-              _ -> determine_config_domain()
-            end
+    # Check if we have a cached domain first
+    case Process.get(@domain_cache_key) do
+      nil ->
+        # No cached value, determine and cache it
+        domain = determine_config_domain_improved()
+        # Cache the result to avoid repeated lookups
+        Process.put(@domain_cache_key, domain)
+        domain
 
-          _ ->
-            determine_config_domain()
-        end
-
-      _ ->
-        determine_config_domain()
+      domain ->
+        # Return cached domain
+        domain
     end
   end
 
-  defp determine_config_domain do
-    # Fallback method checking application environment
-    Application.get_env(:arca_config, :config_domain) ||
-      :arca_config
+  defp determine_config_domain_improved do
+    # First try the explicit configuration (highest priority)
+    explicit_domain = Application.get_env(:arca_config, :config_domain)
+
+    if explicit_domain do
+      explicit_domain
+    else
+      try_detect_parent_app()
+    end
+  end
+
+  defp try_detect_parent_app do
+    # Get the OTP application for the calling module
+    caller_app =
+      case Process.get(:"$callers") do
+        # If we have caller information
+        [caller | _] when is_pid(caller) ->
+          # Get the application for the calling process
+          case Process.info(caller, :dictionary) do
+            {:dictionary, dict} ->
+              # Look up the caller's application
+              case Keyword.get(dict, :"$initial_call") do
+                {mod, _, _} -> Application.get_application(mod)
+                _ -> nil
+              end
+
+            _ ->
+              nil
+          end
+
+        _ ->
+          nil
+      end
+
+    # If we found a caller app and it's not arca_config itself, use it
+    if caller_app && caller_app != :arca_config do
+      caller_app
+    else
+      # Try to find the parent application by examining the application tree
+      # Get all running applications
+      running_apps = Application.started_applications() |> Enum.map(fn {app, _, _} -> app end)
+
+      # If arca_config is the only running app, use it
+      if running_apps == [:arca_config] || !Enum.member?(running_apps, :arca_config) do
+        :arca_config
+      else
+        # Try to find a non-system app that isn't arca_config
+        system_apps = [
+          :kernel,
+          :stdlib,
+          :elixir,
+          :logger,
+          :arca_config,
+          :compiler,
+          :crypto,
+          :jason,
+          :iex
+        ]
+
+        non_system_apps = running_apps -- system_apps
+
+        case non_system_apps do
+          # Fallback if only system apps are running
+          [] -> :arca_config
+          # Use the first non-system app
+          [app | _] -> app
+        end
+      end
+    end
   end
 
   @doc false

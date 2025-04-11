@@ -154,7 +154,7 @@ defmodule Arca.Config.FileWatcherTest do
     {:noreply, _new_state} =
       FileWatcher.handle_info(
         :check_file,
-        %{config_file: test_file, last_info: old_info, write_token: nil}
+        %{config_file: test_file, last_info: old_info, write_token: nil, initialized: true}
       )
 
     # The test above simulates what the GenServer would do when it checks
@@ -171,7 +171,7 @@ defmodule Arca.Config.FileWatcherTest do
     {:noreply, _} =
       FileWatcher.handle_info(
         :check_file,
-        %{config_file: test_file, last_info: old_info, write_token: nil}
+        %{config_file: test_file, last_info: old_info, write_token: nil, initialized: true}
       )
 
     # Verify both functions were called (these should be almost instant since we're

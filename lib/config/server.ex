@@ -394,10 +394,8 @@ defmodule Arca.Config.Server do
         conf when is_map(conf) -> conf
       end
 
-    # Add info logging
+    # Silently dispatch notifications
     require Logger
-    registry_entries = Registry.lookup(Arca.Config.CallbackRegistry, :config_change)
-    Logger.info("config change: notifying #{length(registry_entries)} callbacks")
 
     # Notify all registered callbacks with current config
     Registry.dispatch(Arca.Config.CallbackRegistry, :config_change, fn entries ->
@@ -433,6 +431,12 @@ defmodule Arca.Config.Server do
   def handle_info(:initialize_config, state) do
     # This is now handled by Arca.Config.Initializer
     # No-op to maintain backward compatibility
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:initialization_complete, _pid}, state) do
+    # Initialization is now complete
     {:noreply, state}
   end
 
@@ -639,16 +643,11 @@ defmodule Arca.Config.Server do
     config_path = Arca.Config.Cfg.config_file()
 
     # Extract directory from the full path
-    path = Path.dirname(config_path)
-
     # IMPORTANT: Always fully expand paths to prevent recursive directory creation issues
     # Path.expand converts paths like "./.config/" or "/abs/path" to their absolute form
-    expanded_path = Path.expand(path)
     expanded_config_path = Path.expand(config_path)
 
-    # Debug logging
-    # Logger.debug("Config directory: #{expanded_path}")
-    # Logger.debug("Full config path: #{expanded_config_path}")
+    # No logging during normal operation
 
     # Register a unique write token to avoid self-notifications
     token = System.monotonic_time()
@@ -657,27 +656,12 @@ defmodule Arca.Config.Server do
     # Encode configuration
     encoded_config = Jason.encode!(config, pretty: true)
 
-    # Ensure parent directory exists - using the absolute path
-    ensure_directory(expanded_path)
+    # Ensure parent directory exists and file exists before writing
+    # This now explicitly creates the directory/file only when needed for writing
+    Arca.Config.FileWatcher.ensure_config_exists(config, true)
 
     # Write to the absolute path
     write_file_with_logging(expanded_config_path, encoded_config)
-  end
-
-  # Create directory if it doesn't exist
-  defp ensure_directory(dir) do
-    # Always fully expand the directory path to avoid recursive issues
-    expanded_dir = Path.expand(dir)
-
-    case File.exists?(expanded_dir) do
-      true ->
-        :ok
-
-      false ->
-        # Use File.mkdir_p! to create all necessary parent directories
-        # This is safe because we're using the expanded path
-        File.mkdir_p!(expanded_dir)
-    end
   end
 
   # Write to file with error logging

@@ -97,8 +97,7 @@ defmodule Arca.Config.Initializer do
       Logger.warning("Initialization already in progress, ignoring duplicate request")
       {:noreply, state}
     else
-      # # Mark that we're starting initialization
-      # Logger.info("Starting delayed configuration initialization")
+      # Silent initialization - no logs for normal operation
 
       # Track the process doing the initialization to prevent circular dependencies
       new_state = %{state | initializing: true, initialization_process: self()}
@@ -110,7 +109,14 @@ defmodule Arca.Config.Initializer do
       run_after_init_callbacks(new_state.after_init_callbacks)
 
       # Update state to reflect completed initialization
-      {:noreply, %{new_state | initialized: true, initializing: false}}
+      completed_state = %{new_state | initialized: true, initializing: false}
+
+      # Notify FileWatcher directly that initialization is complete
+      if Process.whereis(Arca.Config.FileWatcher) do
+        send(Process.whereis(Arca.Config.FileWatcher), {:initialization_complete, self()})
+      end
+
+      {:noreply, completed_state}
     end
   end
 
@@ -156,8 +162,7 @@ defmodule Arca.Config.Initializer do
         # Apply environment overrides after loading config
         Arca.Config.apply_env_overrides()
 
-        # # For debugging
-        # Logger.debug("Initialized with config: #{inspect(config)}")
+        # Silent operation during normal initialization
 
         %{state | initialized: true, initializing: false, initialization_process: nil}
 
@@ -198,8 +203,7 @@ defmodule Arca.Config.Initializer do
   end
 
   defp run_after_init_callbacks(callbacks) do
-    # count = map_size(callbacks)
-    # Logger.info("Running #{count} delayed initialization callbacks")
+    # Execute callbacks silently, errors will be logged
 
     for {id, callback_fn} <- callbacks do
       safely_run_callback(id, callback_fn)

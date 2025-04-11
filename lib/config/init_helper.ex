@@ -33,8 +33,8 @@ defmodule Arca.Config.InitHelper do
     # Get the config file path that will be used
     config_file = Cfg.config_file() |> Path.expand()
 
-    # Ensure config directory and file exist
-    case FileWatcher.ensure_config_exists(initial_config) do
+    # Ensure config directory and file exist - force creation since this is explicit
+    case FileWatcher.ensure_config_exists(initial_config, true) do
       :ok -> {:ok, config_file}
       error -> error
     end

@@ -6,6 +6,9 @@ defmodule Arca.Config.FileWatcher do
   of the application and ensures the in-memory configuration stays in sync
   with the file on disk. It also prevents notification loops from
   changes made by the application itself.
+
+  IMPORTANT: The FileWatcher no longer automatically creates config files during
+  startup. Files are only created when explicitly needed for write operations.
   """
 
   use GenServer
@@ -41,22 +44,64 @@ defmodule Arca.Config.FileWatcher do
   This function creates the config directory if it doesn't exist
   and creates an empty config file if one doesn't exist yet.
 
+  IMPORTANT: This is now only called when explicitly needed, not during startup.
+
   ## Parameters
     - `initial_config`: Optional map with default configuration values (defaults to empty map)
+    - `create_if_missing`: Whether to create the directory and file if missing (defaults to true)
 
   ## Returns
-    - `:ok` if the directory and file were created successfully
+    - `:ok` if the directory and file were created successfully or if creation was skipped
     - `{:error, reason}` if an error occurred
   """
-  @spec ensure_config_exists(map()) :: :ok | {:error, term()}
-  def ensure_config_exists(initial_config \\ %{}) do
+  @spec ensure_config_exists(map(), boolean()) :: :ok | {:error, term()}
+  def ensure_config_exists(initial_config \\ %{}, create_if_missing \\ true) do
     # Use Arca.Config.Cfg.config_file() which now properly expands paths
     config_file = Arca.Config.Cfg.config_file() |> Path.expand()
     config_dir = Path.dirname(config_file)
 
-    with :ok <- ensure_directory_exists(config_dir),
-         :ok <- ensure_file_exists(config_file, initial_config) do
+    # Check if initialization is complete before creating directories
+    initializer_ready = initialization_complete?()
+
+    # Only create directories/files if explicitly requested AND initialization is complete
+    if create_if_missing && initializer_ready do
+      with :ok <- ensure_directory_exists(config_dir),
+           :ok <- ensure_file_exists(config_file, initial_config) do
+        :ok
+      end
+    else
+      # Skip file creation if not requested or during startup
       :ok
+    end
+  end
+
+  # Check if the initializer is ready
+  defp initialization_complete? do
+    # First check our own state - if we've been notified of completion
+    if Process.get(:file_watcher_initialized, false) do
+      true
+    else
+      # Otherwise check the initializer directly
+      initializer_available? = Process.whereis(Arca.Config.Initializer) != nil
+
+      if initializer_available? do
+        try do
+          is_initialized = Arca.Config.Initializer.initialized?()
+          # Cache the result if it's true to avoid future calls
+          if is_initialized do
+            Process.put(:file_watcher_initialized, true)
+          end
+
+          is_initialized
+        rescue
+          # If we can't check, assume it's not complete to be safe
+          _ -> false
+        end
+      else
+        # If initializer isn't available, assume true for backward compatibility
+        # but only in production - be conservative in dev/test
+        Mix.env() == :prod
+      end
     end
   end
 
@@ -64,51 +109,64 @@ defmodule Arca.Config.FileWatcher do
 
   @impl true
   def init(_) do
-    # Ensure config directory and file exist
-    case ensure_config_exists() do
-      :ok ->
-        # Get initial file info
-        config_file = Arca.Config.Cfg.config_file()
-        file_info = get_file_info(config_file)
+    # No longer ensure config directory and file exist on startup
+    # Instead, get the config file path without creating anything
+    config_file = Arca.Config.Cfg.config_file()
+    file_info = if File.exists?(config_file), do: get_file_info(config_file), else: nil
 
-        # Schedule first check
-        schedule_check()
+    # Schedule first check
+    schedule_check()
 
-        {:ok, %{config_file: config_file, last_info: file_info, write_token: nil}}
+    {:ok, %{config_file: config_file, last_info: file_info, write_token: nil, initialized: false}}
+  end
 
-      {:error, reason} ->
-        Logger.error("Failed to ensure config exists: #{reason}")
-        # Continue with what we can
-        config_file = Arca.Config.Cfg.config_file()
-        {:ok, %{config_file: config_file, last_info: nil, write_token: nil}}
-    end
+  @impl true
+  def handle_info({:initialization_complete, _pid}, state) do
+    # Initialization is now complete, update our state
+    # Also store in process dictionary for use in helper functions
+    Process.put(:file_watcher_initialized, true)
+    {:noreply, %{state | initialized: true}}
   end
 
   @impl true
   def handle_info(
         :check_file,
-        %{config_file: path, last_info: last_info, write_token: token} = state
+        %{config_file: _path, last_info: last_info, write_token: token, initialized: initialized} =
+          state
       ) do
-    current_info = get_file_info(path)
+    # Always refresh the config path in case it changed due to environment changes
+    updated_path = Arca.Config.Cfg.config_file() |> Path.expand()
 
-    # Check if file has been modified (and not by us)
-    if file_changed?(current_info, last_info) do
-      if token != current_info.mtime do
-        # Reload config
-        Logger.info("Config file #{path} changed, reloading")
-        {:ok, _config} = Arca.Config.Server.reload()
+    # Only check for file changes if the file exists AND either:
+    # 1. We are fully initialized, OR
+    # 2. This is a self-triggered change (token matches)
+    current_info = if File.exists?(updated_path), do: get_file_info(updated_path), else: nil
+    token_matches = current_info != nil && token == current_info.mtime
 
-        # Notify external callbacks after reload
-        Arca.Config.Server.notify_external_change()
-        # else
-        #   Logger.debug("Config file #{path} changed by our own write, skipping notification")
+    if File.exists?(updated_path) && (initialized || token_matches) do
+      # Check if file has been modified (and not by us)
+      if file_changed?(current_info, last_info) do
+        if token != current_info.mtime do
+          # Reload config quietly, only log errors
+          {:ok, _config} = Arca.Config.Server.reload()
+
+          # Notify external callbacks after reload
+          Arca.Config.Server.notify_external_change()
+          # else
+          #   Logger.debug("Config file #{path} changed by our own write, skipping notification")
+        end
       end
+
+      # Update state with latest file info and path
+      new_state = %{state | last_info: current_info, config_file: updated_path}
+      # Schedule next check
+      schedule_check()
+      {:noreply, new_state}
+    else
+      # File doesn't exist or we're not initialized yet - just schedule the next check
+      schedule_check()
+      {:noreply, state}
     end
-
-    # Schedule next check
-    schedule_check()
-
-    {:noreply, %{state | last_info: current_info}}
   end
 
   @impl true
