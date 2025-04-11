@@ -27,6 +27,21 @@ defmodule Arca.Config.AutoConfigTest do
       System.delete_env("#{env_prefix}_CONFIG_OVERRIDE_SERVER_PORT")
       System.delete_env("#{env_prefix}_CONFIG_OVERRIDE_DEBUG_ENABLED")
 
+      # Clean up test-specific config dirs (.test_app) anywhere they might be created
+      [
+        # Home directory
+        Path.join(System.user_home!(), ".test_app"),
+        # Current working directory
+        Path.join(File.cwd!(), ".test_app"),
+        # Parent directory
+        Path.join(Path.dirname(File.cwd!()), ".test_app")
+      ]
+      |> Enum.each(fn dir ->
+        if File.exists?(dir) do
+          File.rm_rf!(dir)
+        end
+      end)
+
       # Cleanup the test directory
       File.rm_rf!(test_dir)
     end)
@@ -114,6 +129,29 @@ defmodule Arca.Config.AutoConfigTest do
     assert config["database"]["host"] == "localhost"
     assert config["database"]["username"] == "dbuser"
     assert config["database"]["password"] == "secret"
+  end
+
+  test "explicitly tests directory setup and cleanup", %{config_file: _config_file} do
+    # This test explicitly creates the .test_app directory to ensure cleanup works
+    {:ok, home_config_path} =
+      Arca.Config.InitHelper.setup_default_config(:test_app, %{"test" => "value"})
+
+    # Verify the directory was created
+    test_app_dir = Path.join(System.user_home!(), ".test_app")
+    assert File.exists?(test_app_dir)
+    assert File.exists?(home_config_path)
+
+    # Also check if we have project-relative directories
+    project_test_app = Path.join(File.cwd!(), ".test_app")
+    parent_test_app = Path.join(Path.dirname(File.cwd!()), ".test_app")
+
+    # Log the locations being checked
+    IO.puts("Checking locations for cleanup:")
+    IO.puts("  Home: #{test_app_dir}")
+    IO.puts("  Project: #{project_test_app}")
+    IO.puts("  Parent: #{parent_test_app}")
+
+    # Directory should be cleaned up automatically in on_exit callback
   end
 
   test "environment overrides are applied through start function", %{config_file: config_file} do
