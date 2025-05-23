@@ -3,9 +3,21 @@ defmodule Arca.Config.Cfg do
   Provides a simple programmatic API to a set of configuration properties held in a JSON config file.
 
   This module automatically derives configuration paths and filenames from the config domain
-  if not explicitly configured. For example, if your application is named `:my_app`, the default
-  configuration path will be `.my_app/` and will look for environment variables like
-  `MY_APP_CONFIG_PATH` unless explicitly overridden.
+  if not explicitly configured. The config domain is determined in the following order:
+
+  1. **Explicit configuration**: `Application.put_env(:arca_config, :config_domain, :my_app)`
+  2. **Auto-detection**: Based on the parent application context
+  3. **Default**: `:arca_config`
+
+  For example, if your application is named `:my_app` and you set the config domain explicitly,
+  the default configuration path will be `~/.my_app/` and will look for environment variables
+  like `MY_APP_CONFIG_PATH`.
+
+  ## Important Notes
+
+  - Parent applications should set the config domain early in their `Application.start/2` callback
+  - The config domain can be changed at runtime and will take effect immediately
+  - Use `clear_domain_cache/0` if you need to force re-evaluation of auto-detected domains
   """
 
   # Cache for storing the resolved config domain
@@ -13,30 +25,48 @@ defmodule Arca.Config.Cfg do
 
   @doc false
   def config_domain do
-    # Check if we have a cached domain first
-    case Process.get(@domain_cache_key) do
-      nil ->
-        # No cached value, determine and cache it
-        domain = determine_config_domain_improved()
-        # Cache the result to avoid repeated lookups
-        Process.put(@domain_cache_key, domain)
-        domain
-
-      domain ->
-        # Return cached domain
-        domain
-    end
-  end
-
-  defp determine_config_domain_improved do
-    # First try the explicit configuration (highest priority)
+    # Always check explicit configuration first (highest priority)
+    # This ensures parent applications can override the domain at any time
     explicit_domain = Application.get_env(:arca_config, :config_domain)
 
     if explicit_domain do
       explicit_domain
     else
-      try_detect_parent_app()
+      # Only use cached value if no explicit config is set
+      case Process.get(@domain_cache_key) do
+        nil ->
+          # No cached value, determine and cache it
+          domain = determine_config_domain_improved()
+          # Cache the result to avoid repeated lookups
+          Process.put(@domain_cache_key, domain)
+          domain
+
+        domain ->
+          # Return cached domain
+          domain
+      end
     end
+  end
+
+  @doc """
+  Clears the cached config domain, forcing re-evaluation on next access.
+
+  This is useful when the parent application changes the config domain
+  after arca_config has already cached a value.
+
+  ## Examples
+      iex> Arca.Config.Cfg.clear_domain_cache()
+      :ok
+  """
+  def clear_domain_cache do
+    Process.delete(@domain_cache_key)
+    :ok
+  end
+
+  defp determine_config_domain_improved do
+    # This function now only handles auto-detection
+    # since explicit config is checked at the top level
+    try_detect_parent_app()
   end
 
   defp try_detect_parent_app do

@@ -1,7 +1,35 @@
 ---
-verblock: "25 Mar 2025:v0.5: Claude-assisted - Fixed path handling and environment variable preservation"
+verblock: "25 Mar 2025:v0.6: Claude-assisted - Fixed FileWatcher token logic preventing notification loops"
 ---
 # Work In Progress
+
+## FIXED: FileWatcher Token Logic for Preventing Notification Loops
+
+✅ Fixed a critical issue in the FileWatcher test where the token comparison logic was incorrect, causing the test to fail.
+
+The issue:
+**Incorrect token comparison**: The FileWatcher was comparing the registered token (generated with `System.monotonic_time()`) with the file's modification time (`mtime`), which are completely different values. This meant the token system wasn't working to prevent notification loops.
+
+Changes implemented:
+
+1. **Fixed token comparison logic in `Arca.Config.FileWatcher`:**
+   - Changed from comparing `token == current_info.mtime` to checking `token == nil`
+   - Now properly distinguishes between internal changes (when token is set) and external changes (when token is nil)
+   - Added logic to clear the token after processing a file change to allow future legitimate notifications
+
+2. **Updated state management:**
+   - Token is now cleared after each file check cycle to prevent stale tokens from blocking future notifications
+   - Improved comments to clarify the intended behavior
+
+3. **Test verification:**
+   - The failing FileWatcher test now passes consistently
+   - All other tests continue to pass, confirming no regressions
+
+These changes ensure:
+- Internal file writes (from `Arca.Config.put/2`) don't trigger notification loops
+- External file changes are properly detected and trigger notifications
+- The token system works as intended to distinguish between internal and external changes
+- File watchers reliably detect external configuration changes without false positives
 
 ## ADDED: Fix for Circular Dependencies in Application Startup
 

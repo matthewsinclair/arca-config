@@ -137,28 +137,24 @@ defmodule Arca.Config.FileWatcher do
     # Always refresh the config path in case it changed due to environment changes
     updated_path = Arca.Config.Cfg.config_file() |> Path.expand()
 
-    # Only check for file changes if the file exists AND either:
-    # 1. We are fully initialized, OR
-    # 2. This is a self-triggered change (token matches)
+    # Only check for file changes if the file exists AND we are fully initialized
     current_info = if File.exists?(updated_path), do: get_file_info(updated_path), else: nil
-    token_matches = current_info != nil && token == current_info.mtime
 
-    if File.exists?(updated_path) && (initialized || token_matches) do
+    if File.exists?(updated_path) && initialized do
       # Check if file has been modified (and not by us)
       if file_changed?(current_info, last_info) do
-        if token != current_info.mtime do
-          # Reload config quietly, only log errors
+        if token == nil do
+          # External change - reload config and notify
           {:ok, _config} = Arca.Config.Server.reload()
-
-          # Notify external callbacks after reload
           Arca.Config.Server.notify_external_change()
-          # else
-          #   Logger.debug("Config file #{path} changed by our own write, skipping notification")
+        else
+          # Internal change - clear the token but don't notify
+          # Logger.debug("Config file #{updated_path} changed by our own write, skipping notification")
         end
       end
 
-      # Update state with latest file info and path
-      new_state = %{state | last_info: current_info, config_file: updated_path}
+      # Update state with latest file info and path, and clear any registered token
+      new_state = %{state | last_info: current_info, config_file: updated_path, write_token: nil}
       # Schedule next check
       schedule_check()
       {:noreply, new_state}
