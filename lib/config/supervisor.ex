@@ -3,7 +3,8 @@ defmodule Arca.Config.Supervisor do
   Supervisor for Arca.Config components.
 
   Manages the lifecycle of the configuration server and its dependencies,
-  including the registry for configuration subscriptions.
+  including registries for configuration subscriptions and callbacks.
+  Configuration loading is handled through OTP start phases.
   """
 
   use Supervisor
@@ -28,17 +29,11 @@ defmodule Arca.Config.Supervisor do
       # Registry for simple 0-arity callbacks
       {Registry, keys: :duplicate, name: Arca.Config.SimpleCallbackRegistry},
 
-      # Registry for initialization callbacks
-      {Registry, keys: :unique, name: Arca.Config.InitRegistry},
-
       # ETS-based cache owner process for configuration values
       Arca.Config.Cache,
 
       # Main configuration server
       {Arca.Config.Server, []},
-
-      # Delayed initialization server to prevent circular dependencies
-      {Arca.Config.Initializer, []},
 
       # File watcher process for detecting external changes
       Arca.Config.FileWatcher

@@ -15,13 +15,10 @@ defmodule Arca.Config.Cfg do
 
   ## Important Notes
 
-  - Parent applications should set the config domain early in their `Application.start/2` callback
-  - The config domain can be changed at runtime and will take effect immediately
-  - Use `clear_domain_cache/0` if you need to force re-evaluation of auto-detected domains
+  - Parent applications MUST set the config domain in their `Application.start/2` callback
+    before calling `Arca.Config.load_config_phase/0` during the start phase
+  - The config domain is checked on every access to ensure consistency
   """
-
-  # Cache for storing the resolved config domain
-  @domain_cache_key :arca_config_domain_cache
 
   @doc false
   def config_domain do
@@ -32,41 +29,9 @@ defmodule Arca.Config.Cfg do
     if explicit_domain do
       explicit_domain
     else
-      # Only use cached value if no explicit config is set
-      case Process.get(@domain_cache_key) do
-        nil ->
-          # No cached value, determine and cache it
-          domain = determine_config_domain_improved()
-          # Cache the result to avoid repeated lookups
-          Process.put(@domain_cache_key, domain)
-          domain
-
-        domain ->
-          # Return cached domain
-          domain
-      end
+      # Auto-detect domain without caching
+      try_detect_parent_app()
     end
-  end
-
-  @doc """
-  Clears the cached config domain, forcing re-evaluation on next access.
-
-  This is useful when the parent application changes the config domain
-  after arca_config has already cached a value.
-
-  ## Examples
-      iex> Arca.Config.Cfg.clear_domain_cache()
-      :ok
-  """
-  def clear_domain_cache do
-    Process.delete(@domain_cache_key)
-    :ok
-  end
-
-  defp determine_config_domain_improved do
-    # This function now only handles auto-detection
-    # since explicit config is checked at the top level
-    try_detect_parent_app()
   end
 
   defp try_detect_parent_app do

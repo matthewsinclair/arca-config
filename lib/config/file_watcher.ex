@@ -7,8 +7,8 @@ defmodule Arca.Config.FileWatcher do
   with the file on disk. It also prevents notification loops from
   changes made by the application itself.
 
-  IMPORTANT: The FileWatcher no longer automatically creates config files during
-  startup. Files are only created when explicitly needed for write operations.
+  The FileWatcher starts in dormant state and only begins monitoring after
+  configuration is loaded during the start phase.
   """
 
   use GenServer
@@ -39,12 +39,22 @@ defmodule Arca.Config.FileWatcher do
   end
 
   @doc """
+  Starts file watching after configuration has been loaded.
+  This should be called after the configuration is loaded during the start phase.
+
+  ## Returns
+    - `:ok` if file watching was started successfully
+  """
+  @spec start_watching() :: :ok
+  def start_watching do
+    GenServer.cast(__MODULE__, :start_watching)
+  end
+
+  @doc """
   Ensures the configuration directory and file exist.
 
   This function creates the config directory if it doesn't exist
   and creates an empty config file if one doesn't exist yet.
-
-  IMPORTANT: This is now only called when explicitly needed, not during startup.
 
   ## Parameters
     - `initial_config`: Optional map with default configuration values (defaults to empty map)
@@ -60,48 +70,15 @@ defmodule Arca.Config.FileWatcher do
     config_file = Arca.Config.Cfg.config_file() |> Path.expand()
     config_dir = Path.dirname(config_file)
 
-    # Check if initialization is complete before creating directories
-    initializer_ready = initialization_complete?()
-
-    # Only create directories/files if explicitly requested AND initialization is complete
-    if create_if_missing && initializer_ready do
+    # Only create directories/files if explicitly requested
+    if create_if_missing do
       with :ok <- ensure_directory_exists(config_dir),
            :ok <- ensure_file_exists(config_file, initial_config) do
         :ok
       end
     else
-      # Skip file creation if not requested or during startup
+      # Skip file creation if not requested
       :ok
-    end
-  end
-
-  # Check if the initializer is ready
-  defp initialization_complete? do
-    # First check our own state - if we've been notified of completion
-    if Process.get(:file_watcher_initialized, false) do
-      true
-    else
-      # Otherwise check the initializer directly
-      initializer_available? = Process.whereis(Arca.Config.Initializer) != nil
-
-      if initializer_available? do
-        try do
-          is_initialized = Arca.Config.Initializer.initialized?()
-          # Cache the result if it's true to avoid future calls
-          if is_initialized do
-            Process.put(:file_watcher_initialized, true)
-          end
-
-          is_initialized
-        rescue
-          # If we can't check, assume it's not complete to be safe
-          _ -> false
-        end
-      else
-        # If initializer isn't available, assume true for backward compatibility
-        # but only in production - be conservative in dev/test
-        Mix.env() == :prod
-      end
     end
   end
 
@@ -109,66 +86,79 @@ defmodule Arca.Config.FileWatcher do
 
   @impl true
   def init(_) do
-    # No longer ensure config directory and file exist on startup
-    # Instead, get the config file path without creating anything
+    # Start in dormant state - no file checking until configuration is loaded
+    {:ok, %{config_file: nil, last_info: nil, write_token: nil, watching: false}}
+  end
+
+  @impl true
+  def handle_cast(:start_watching, state) do
+    # Configuration has been loaded, start watching
     config_file = Arca.Config.Cfg.config_file()
     file_info = if File.exists?(config_file), do: get_file_info(config_file), else: nil
 
     # Schedule first check
     schedule_check()
 
-    {:ok, %{config_file: config_file, last_info: file_info, write_token: nil, initialized: false}}
-  end
-
-  @impl true
-  def handle_info({:initialization_complete, _pid}, state) do
-    # Initialization is now complete, update our state
-    # Also store in process dictionary for use in helper functions
-    Process.put(:file_watcher_initialized, true)
-    {:noreply, %{state | initialized: true}}
-  end
-
-  @impl true
-  def handle_info(
-        :check_file,
-        %{config_file: _path, last_info: last_info, write_token: token, initialized: initialized} =
-          state
-      ) do
-    # Always refresh the config path in case it changed due to environment changes
-    updated_path = Arca.Config.Cfg.config_file() |> Path.expand()
-
-    # Only check for file changes if the file exists AND we are fully initialized
-    current_info = if File.exists?(updated_path), do: get_file_info(updated_path), else: nil
-
-    if File.exists?(updated_path) && initialized do
-      # Check if file has been modified (and not by us)
-      if file_changed?(current_info, last_info) do
-        if token == nil do
-          # External change - reload config and notify
-          {:ok, _config} = Arca.Config.Server.reload()
-          Arca.Config.Server.notify_external_change()
-        else
-          # Internal change - clear the token but don't notify
-          # Logger.debug("Config file #{updated_path} changed by our own write, skipping notification")
-        end
-      end
-
-      # Update state with latest file info and path, and clear any registered token
-      new_state = %{state | last_info: current_info, config_file: updated_path, write_token: nil}
-      # Schedule next check
-      schedule_check()
-      {:noreply, new_state}
-    else
-      # File doesn't exist or we're not initialized yet - just schedule the next check
-      schedule_check()
-      {:noreply, state}
-    end
+    {:noreply, %{state | config_file: config_file, last_info: file_info, watching: true}}
   end
 
   @impl true
   def handle_cast({:register_write, token}, state) do
     # Register that we've written to the file (to avoid self-notification)
     {:noreply, %{state | write_token: token}}
+  end
+
+  @impl true
+  def handle_info({:reset_to_dormant, _pid}, _state) do
+    # Reset to dormant state for testing
+    {:noreply, %{config_file: nil, last_info: nil, write_token: nil, watching: false}}
+  end
+
+  @impl true
+  def handle_info(
+        :check_file,
+        %{config_file: _path, last_info: last_info, write_token: token, watching: watching} =
+          state
+      ) do
+    # Only check for file changes if we are watching
+    if watching do
+      # Always refresh the config path in case it changed due to environment changes
+      updated_path = Arca.Config.Cfg.config_file() |> Path.expand()
+
+      # Only check for file changes if the file exists
+      current_info = if File.exists?(updated_path), do: get_file_info(updated_path), else: nil
+
+      if File.exists?(updated_path) do
+        # Check if file has been modified (and not by us)
+        if file_changed?(current_info, last_info) do
+          if token == nil do
+            # External change - reload config and notify
+            {:ok, _config} = Arca.Config.Server.reload()
+            Arca.Config.Server.notify_external_change()
+          end
+        end
+
+        # Update state with latest file info and path, and clear any registered token
+        new_state = %{
+          state
+          | last_info: current_info,
+            config_file: updated_path,
+            write_token: nil
+        }
+
+        # Schedule next check
+        schedule_check()
+        {:noreply, new_state}
+      else
+        # File doesn't exist - just schedule the next check
+        schedule_check()
+        {:noreply, state}
+      end
+    else
+      # Not watching yet - just schedule the next check
+      schedule_check()
+      {:noreply, state}
+    end
   end
 
   # Private functions

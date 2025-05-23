@@ -5,6 +5,38 @@ defmodule Arca.Config do
   It allows reading from and writing to a JSON configuration file, with support for
   nested properties using dot notation.
 
+  ## OTP Start Phase Integration
+
+  **IMPORTANT**: Starting from this version, Arca.Config uses OTP start phases for 
+  deterministic configuration loading. Parent applications MUST:
+
+  1. Set the config domain in their `Application.start/2` callback:
+     ```elixir
+     def start(_type, _args) do
+       Application.put_env(:arca_config, :config_domain, :my_app)
+       # ... start supervisor tree
+     end
+     ```
+
+  2. Implement the `:load_config` start phase:
+     ```elixir
+     def start_phase(:load_config, _start_type, _phase_args) do
+       Arca.Config.load_config_phase()
+     end
+     ```
+
+  3. Define start phases in mix.exs:
+     ```elixir
+     def application do
+       [
+         extra_applications: [:logger],
+         start_phases: [load_config: []]
+       ]
+     end
+     ```
+
+  ## Usage
+
   The configuration system supports both a railway-oriented programming style:
 
       iex> System.put_env("ARCA_CONFIG_PATH", System.tmp_dir!())
@@ -34,37 +66,58 @@ defmodule Arca.Config do
   Handle Application functionality to start the Arca.Config subsystem.
 
   Starts the supervisor tree that manages the configuration system.
-  Environment overrides are now applied by the initializer to prevent
-  circular dependencies during startup.
+  Configuration loading is handled through OTP start phases.
   """
   @impl true
   def start(_type, _args) do
-    # Start the supervisor without applying environment overrides
-    # (they'll be applied by the initializer)
+    # Start the supervisor - configuration will be loaded during start phase
     ConfigSupervisor.start_link([])
   end
 
   @doc """
-  Applies environment variable overrides to the configuration file.
+  Loads configuration during the :load_config start phase.
 
-  Looks for environment variables with the pattern `APP_CONFIG_OVERRIDE_SECTION_KEY`
-  and applies them to the configuration file. For example, if the environment variable
-  `MY_APP_CONFIG_OVERRIDE_DATABASE_HOST` is set to "localhost", it will update
-  the configuration value at `database.host` to "localhost".
+  This function should be called by parent applications during their
+  start phase implementation. It:
 
-  This function automatically converts values to appropriate types (integer, boolean, etc.).
+  1. Loads initial configuration from file
+  2. Initializes the cache
+  3. Starts file watching
+  4. Applies environment variable overrides
 
   ## Returns
-    - `:ok` if the operation was successful
+    - `:ok` if configuration was loaded successfully
     - `{:error, reason}` if there was an error
-
+    
   ## Examples
-      iex> System.put_env("MY_APP_CONFIG_OVERRIDE_DATABASE_HOST", "localhost")
-      iex> Arca.Config.apply_env_overrides()
-      :ok
+      # In your application's start phase handler:
+      def start_phase(:load_config, _start_type, _phase_args) do
+        Arca.Config.load_config_phase()
+      end
   """
-  @spec apply_env_overrides() :: :ok | {:error, term()}
-  def apply_env_overrides do
+  @spec load_config_phase() :: :ok | {:error, term()}
+  def load_config_phase do
+    # Load initial configuration
+    case Server.load_config() do
+      {:ok, _config} ->
+        # Start file watching now that config is loaded
+        Arca.Config.FileWatcher.start_watching()
+
+        # Apply environment overrides
+        apply_env_overrides()
+
+        :ok
+
+      {:error, reason} ->
+        # Still start file watching and apply overrides even if config load failed
+        Arca.Config.FileWatcher.start_watching()
+        apply_env_overrides()
+
+        {:error, reason}
+    end
+  end
+
+  defp apply_env_overrides do
     # Get the prefix for environment variables
     env_prefix = Arca.Config.Cfg.env_var_prefix()
     override_prefix = "#{env_prefix}_CONFIG_OVERRIDE_"

@@ -15,25 +15,77 @@ def deps do
 end
 ```
 
+## Setup
+
+**IMPORTANT**: Starting from this version, Arca.Config requires OTP start phases for proper initialization.
+
+### 1. Add dependency to mix.exs
+
+```elixir
+def deps do
+  [
+    {:arca_config, "~> 0.2.0"}
+  ]
+end
+```
+
+### 2. Configure start phases in mix.exs
+
+```elixir
+def application do
+  [
+    extra_applications: [:logger],
+    start_phases: [load_config: []]
+  ]
+end
+```
+
+### 3. Set config domain and implement start phase in your Application module
+
+```elixir
+defmodule MyApp.Application do
+  use Application
+
+  @impl true
+  def start(_type, _args) do
+    # REQUIRED: Set the config domain before starting supervision tree
+    Application.put_env(:arca_config, :config_domain, :my_app)
+    
+    children = [
+      # Your supervisors and workers here
+    ]
+
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+
+  @impl true
+  def start_phase(:load_config, _start_type, _phase_args) do
+    # REQUIRED: Load configuration during start phase
+    Arca.Config.load_config_phase()
+  end
+end
+```
+
 ## Usage
 
 ### As a Library
 
 ```elixir
 # Read a configuration value
-{:ok, value} = Arca.Config.Cfg.get("database.host")
+{:ok, value} = Arca.Config.get("database.host")
 
 # Read a configuration value (raises on error)
-value = Arca.Config.Cfg.get!("database.host")
+value = Arca.Config.get!("database.host")
 
 # Write a configuration value
-{:ok, _} = Arca.Config.Cfg.put("database.host", "localhost")
+{:ok, _} = Arca.Config.put("database.host", "localhost")
 
 # Write a configuration value (raises on error)
-Arca.Config.Cfg.put!("database.host", "localhost")
+Arca.Config.put!("database.host", "localhost")
 
-# Load the entire configuration
-{:ok, config} = Arca.Config.Cfg.load()
+# Reload configuration from disk
+{:ok, config} = Arca.Config.reload()
 ```
 
 ### As a CLI
