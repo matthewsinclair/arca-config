@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/test)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(ls:*)",
+      "Bash(mix deps.get:*)"
+    ],
+    "deny": []
+  }
+}
