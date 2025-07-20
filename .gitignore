@@ -37,3 +37,16 @@ peer-name.conf
 
 # Ignore .elixir_ls
 .elixir_ls
+
+# Ignore .backup 
+.backup 
+
+# Never take .env into version control 
+.env 
+.env.*
+
+
+# Ignore any .env files 
+.env 
+.env.*
+config/.env

@@ -210,7 +210,7 @@ defmodule Arca.Config.ServerTest do
     } do
       # Create a special absolute path for this test directly within the test_dir
       absolute_path = Path.join(test_dir, "absolute_dir") |> Path.expand()
-      IO.puts("DEBUG: Creating test directory at #{absolute_path}")
+      # Debug output suppressed
       File.mkdir_p!(absolute_path)
 
       # VERY IMPORTANT: We will use a direct method where we override the important functions
@@ -229,7 +229,7 @@ defmodule Arca.Config.ServerTest do
       # Write initial content to the file and make sure directory exists
       File.mkdir_p!(absolute_path)
       File.write!(config_file, "{}")
-      IO.puts("DEBUG: Direct config file at #{config_file}")
+      # Debug output suppressed
 
       # Directly create a GenServer with our specified paths
       {:ok, _config} = Server.reload()

@@ -26,6 +26,7 @@ Changes implemented:
    - All other tests continue to pass, confirming no regressions
 
 These changes ensure:
+
 - Internal file writes (from `Arca.Config.put/2`) don't trigger notification loops
 - External file changes are properly detected and trigger notifications
 - The token system works as intended to distinguish between internal and external changes
@@ -58,6 +59,7 @@ Key components of the implementation:
    - Added proper error handling for callback execution
 
 These changes resolve circular dependency issues during application startup by:
+
 - Ensuring configuration is loaded after the application tree is established
 - Providing reasonable defaults during initialization instead of triggering recursive lookups
 - Allowing dependent components to register for notification after initialization is complete
@@ -89,6 +91,7 @@ Changes implemented:
    - Improved test patterns for path handling
 
 These changes ensure:
+
 - Path formatting from environment variables is preserved exactly as specified
 - All tests now pass consistently with no warnings or errors
 - The codebase is cleaner and more maintainable
@@ -127,6 +130,7 @@ Implementation details:
    - Added examples for Docker and other deployment scenarios
 
 This feature enables:
+
 - Environment-specific configuration in production, staging, and development
 - Easy configuration of containerized applications
 - Passing configuration through CI/CD pipelines
@@ -157,6 +161,7 @@ Changes implemented:
    - Confirms configs are written to the exact location specified in env vars
 
 These changes ensure:
+
 - Configuration is always written to and read from the same location
 - Environment variable changes are immediately respected
 - Recursive directory structures are never created

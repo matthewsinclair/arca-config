@@ -141,8 +141,7 @@ defmodule Arca.Config.AutoConfigTest do
     assert File.exists?(project_dir)
     assert File.exists?(config_path)
 
-    # Log the location being used
-    IO.puts("Created test config at: #{config_path}")
+    # Suppress output during test
 
     # Directory should be cleaned up automatically in on_exit callback
   end

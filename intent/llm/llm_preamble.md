@@ -13,30 +13,30 @@ arca_config follows the Steel Thread Project (STP) methodology, which organizes 
 
 When working with this repository, you should focus on these key documents in this specific order:
 
-1. **START HERE**: `stp/eng/tpd/technical_product_design.md` - Contains comprehensive information about the project vision, architecture, and current state.
+1. **START HERE**: `intent/eng/tpd/technical_product_design.md` - Contains comprehensive information about the project vision, architecture, and current state.
 
-2. **NEXT**: `stp/prj/st/steel_threads.md` - Provides a complete index of all steel threads with their status. Review this to understand what work has been completed and what remains.
+2. **NEXT**: `intent/st/steel_threads.md` - Provides a complete index of all steel threads with their status. Review this to understand what work has been completed and what remains.
 
-3. **THEN**: `stp/prj/wip.md` - Details the current work in progress and priorities. This is your guide to what should be worked on now.
+3. **THEN**: `intent/wip.md` - Details the current work in progress and priorities. This is your guide to what should be worked on now.
 
-4. **FINALLY**: `stp/prj/journal.md` - Records the historical narrative of work completed. Reference this for context on previous development.
+4. **FINALLY**: `intent/journal.md` - Records the historical narrative of work completed. Reference this for context on previous development.
 
 ## Documentation Structure
 
 The STP methodology organizes project information through a specific directory structure:
 
-- **stp/prj/**: Project management documents
-  - **stp/prj/wip.md**: Current work in progress
-  - **stp/prj/journal.md**: Historical record of project activities
-  - **stp/prj/st/**: Steel thread documents and index
-- **stp/eng/**: Engineering documentation
-  - **stp/eng/tpd/**: Technical Product Design documents
-- **stp/usr/**: User documentation
-  - **stp/usr/user_guide.md**: End-user instructions
-  - **stp/usr/reference_guide.md**: Complete feature reference∏
-  - **stp/usr/deployment_guide.md**: Deployment instructions
-- **stp/llm/**: LLM-specific content
-  - **stp/llm/llm_preamble.md**: This document
+- **intent/**: Project management documents
+  - **intent/wip.md**: Current work in progress
+  - **intent/journal.md**: Historical record of project activities
+  - **intent/st/**: Steel thread documents and index
+- **intent/eng/**: Engineering documentation
+  - **intent/eng/tpd/**: Technical Product Design documents
+- **intent/usr/**: User documentation
+  - **intent/usr/user_guide.md**: End-user instructions
+  - **intent/usr/reference_guide.md**: Complete feature reference∏
+  - **intent/usr/deployment_guide.md**: Deployment instructions
+- **intent/llm/**: LLM-specific content
+  - **intent/llm/llm_preamble.md**: This document
 
 ## Steel Thread Process
 
@@ -48,7 +48,7 @@ Work in this project is organized through steel threads:
    - When work begins, they move to "In Progress"
    - When completed, they are marked as "Completed"
    - They can also be "On Hold" or "Cancelled" as needed
-3. **Documentation**: Each steel thread has its own markdown document in `stp/prj/st/`
+3. **Documentation**: Each steel thread has its own markdown document in `intent/st/`
 4. **Management**: Steel threads are created, tracked, and completed using STP commands
 
 ## Code Style and Conventions
@@ -81,7 +81,7 @@ The STP system provides these commands for project management:
 When assisting with this project, you should:
 
 1. First, understand the current context by reviewing the documents in the order specified
-2. Focus on the work in progress as defined in `stp/prj/wip.md`
+2. Focus on the work in progress as defined in `intent/wip.md`
 3. Maintain consistency with existing patterns and documentation standards
 4. Update documentation alongside code changes
 5. Use the steel thread model to organize new work

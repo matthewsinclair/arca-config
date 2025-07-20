@@ -32,7 +32,7 @@ cleanup_dirs = [
 
 Enum.each(cleanup_dirs, fn dir ->
   if File.exists?(dir) do
-    IO.puts("Cleaning up directory: #{dir}")
+    # Suppress output during test setup
     File.rm_rf!(dir)
   end
 end)
@@ -41,7 +41,7 @@ end)
 System.at_exit(fn _ ->
   Enum.each(cleanup_dirs, fn dir ->
     if File.exists?(dir) do
-      IO.puts("Final cleanup of directory: #{dir}")
+      # Suppress output during test cleanup
       File.rm_rf!(dir)
     end
   end)

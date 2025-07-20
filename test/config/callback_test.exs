@@ -188,21 +188,24 @@ defmodule Arca.Config.CallbackTest do
     end
 
     test "continues execution when a callback raises an error" do
-      # Set up test process to receive messages
-      test_pid = self()
+      # Capture log output to suppress error messages during test
+      ExUnit.CaptureLog.capture_log(fn ->
+        # Set up test process to receive messages
+        test_pid = self()
 
-      # Register a failing callback and a successful one
-      bad_callback = fn -> raise "Intentional test error" end
-      good_callback = fn -> send(test_pid, :good_callback_executed) end
+        # Register a failing callback and a successful one
+        bad_callback = fn -> raise "Intentional test error" end
+        good_callback = fn -> send(test_pid, :good_callback_executed) end
 
-      {:ok, _bad_ref} = Config.add_callback(bad_callback)
-      {:ok, _good_ref} = Config.add_callback(good_callback)
+        {:ok, _bad_ref} = Config.add_callback(bad_callback)
+        {:ok, _good_ref} = Config.add_callback(good_callback)
 
-      # Notification should complete despite the error
-      assert {:ok, :notified} = Config.notify_callbacks()
+        # Notification should complete despite the error
+        assert {:ok, :notified} = Config.notify_callbacks()
 
-      # Good callback should still execute
-      assert_receive :good_callback_executed, 500
+        # Good callback should still execute
+        assert_receive :good_callback_executed, 500
+      end)
     end
   end
 
