@@ -138,6 +138,30 @@ You can customize the configuration file location in the following ways (in orde
 
 This auto-configuration feature means you don't need duplicate configuration across different applications, while maintaining backward compatibility with existing applications.
 
+### Environment Variables (.env file)
+
+Arca.Config automatically loads environment variables from `config/.env` file in development and test environments. This makes it easy to set configuration without manually sourcing files.
+
+Create a `config/.env` file in your project:
+
+```bash
+# config/.env
+ARCA_CONFIG_CONFIG_PATH=.arca_config
+ARCA_CONFIG_CONFIG_FILE=config.json
+
+# Your custom environment variables
+DATABASE_URL=postgres://localhost/myapp_dev
+API_KEY=development_key_123
+```
+
+The .env file is automatically loaded when you run:
+- `mix test`
+- `iex -S mix`
+- `mix run`
+- Any other Mix command in dev/test environments
+
+**Note**: The .env file should not be committed to version control. Add it to your `.gitignore` file.
+
 ## Development
 
 ```bash
