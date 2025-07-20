@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main, master ]
 
+env:
+  MIX_ENV: test
+
 jobs:
   test:
     name: Test on OTP ${{ matrix.otp }} / Elixir ${{ matrix.elixir }}
@@ -41,6 +44,24 @@ jobs:
           ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-
           ${{ runner.os }}-mix-
     
+    - name: Setup environment
+      run: |
+        # Create all required directories and .env file BEFORE compilation
+        mkdir -p config
+        mkdir -p ~/.arca_config
+        mkdir -p ./.arca_config
+        mkdir -p ~/.test_app
+        mkdir -p ./.test_app
+        
+        # Create .env file
+        if [ ! -f config/.env ]; then
+          echo "# Default .env for CI" > config/.env
+          echo "ARCA_CONFIG_CONFIG_PATH=.arca_config" >> config/.env
+          echo "ARCA_CONFIG_CONFIG_FILE=config.json" >> config/.env
+        fi
+        
+        echo "Environment setup complete"
+    
     - name: Install dependencies
       run: |
         mix local.rebar --force
@@ -53,22 +74,6 @@ jobs:
         mix compile
         # Then check for warnings in our own code
         mix compile --warnings-as-errors
-    
-    - name: Create config directories
-      run: |
-        # Create directories that might be needed by tests
-        mkdir -p ~/.arca_config
-        mkdir -p ./.arca_config
-        mkdir -p config
-        
-    - name: Create .env file if needed
-      run: |
-        # Check if .env exists, if not create a default one
-        if [ ! -f config/.env ]; then
-          echo "# Default .env for CI" > config/.env
-          echo "ARCA_CONFIG_CONFIG_PATH=.arca_config" >> config/.env
-          echo "ARCA_CONFIG_CONFIG_FILE=config.json" >> config/.env
-        fi
     
     - name: Run tests
       run: mix test

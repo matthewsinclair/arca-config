@@ -8,6 +8,7 @@ on:
 
 env:
   MIX_ENV: test
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   test:
@@ -32,23 +33,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-mix-
     
-    - name: Install dependencies
+    - name: Setup environment
       run: |
-        mix local.rebar --force
-        mix local.hex --force
-        mix deps.get
-    
-    - name: Compile dependencies
-      run: mix deps.compile
-    
-    - name: Compile
-      run: mix compile
-    
-    - name: Setup test environment
-      run: |
-        # Create required directories
-        mkdir -p ~/.arca_config
-        mkdir -p ./.arca_config
+        # Create config directory and .env file BEFORE any compilation
         mkdir -p config
         
         # Create .env file
@@ -57,6 +44,33 @@ jobs:
         ARCA_CONFIG_CONFIG_PATH=.arca_config
         ARCA_CONFIG_CONFIG_FILE=config.json
         EOF
+        
+        # Create required test directories
+        mkdir -p ~/.arca_config
+        mkdir -p ./.arca_config
+        mkdir -p ~/.test_app
+        mkdir -p ./.test_app
+        
+        # Debug output
+        echo "=== Environment Setup ==="
+        echo "Current directory: $(pwd)"
+        echo "Contents of config directory:"
+        ls -la config/
+        echo "Contents of .env file:"
+        cat config/.env
+    
+    - name: Install dependencies
+      run: |
+        mix local.rebar --force
+        mix local.hex --force
+        echo "=== Fetching dependencies ==="
+        mix deps.get || (echo "Failed to get deps, retrying..." && mix deps.get)
+    
+    - name: Compile dependencies
+      run: mix deps.compile
+    
+    - name: Compile
+      run: mix compile
     
     - name: Run tests
       run: mix test
