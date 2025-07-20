@@ -1,8 +1,10 @@
 # General application configuration
 import Config
 
-# Load environment variables from .env file in dev and test environments
-import_config "dotenv.exs"
+# Load environment variables early (only in dev/test)
+if config_env() in [:dev, :test] do
+  import_config "dotenv.exs"
+end
 
 # Configure Arca.Config
 config :arca_config,

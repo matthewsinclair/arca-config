@@ -8,6 +8,8 @@ on:
 
 env:
   MIX_ENV: test
+  ARCA_CONFIG_CONFIG_PATH: .arca_config
+  ARCA_CONFIG_CONFIG_FILE: config.json
 
 jobs:
   test:
@@ -25,7 +27,8 @@ jobs:
             elixir: '1.18.4'
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
@@ -34,7 +37,7 @@ jobs:
         elixir-version: ${{ matrix.elixir }}
     
     - name: Restore dependencies cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           deps
@@ -44,36 +47,19 @@ jobs:
           ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-
           ${{ runner.os }}-mix-
     
-    - name: Setup environment
+    - name: Install hex and rebar
       run: |
-        # Create all required directories and .env file BEFORE compilation
-        mkdir -p config
-        mkdir -p ~/.arca_config
-        mkdir -p ./.arca_config
-        mkdir -p ~/.test_app
-        mkdir -p ./.test_app
-        
-        # Create .env file
-        if [ ! -f config/.env ]; then
-          echo "# Default .env for CI" > config/.env
-          echo "ARCA_CONFIG_CONFIG_PATH=.arca_config" >> config/.env
-          echo "ARCA_CONFIG_CONFIG_FILE=config.json" >> config/.env
-        fi
-        
-        echo "Environment setup complete"
+        mix local.hex --force
+        mix local.rebar --force
     
     - name: Install dependencies
-      run: |
-        mix local.rebar --force
-        mix local.hex --force
-        mix deps.get
+      run: mix deps.get
     
-    - name: Compile
-      run: |
-        # Compile without warnings as errors first to ensure deps compile
-        mix compile
-        # Then check for warnings in our own code
-        mix compile --warnings-as-errors
+    - name: Compile dependencies
+      run: mix deps.compile
+    
+    - name: Compile application
+      run: mix compile --warnings-as-errors
     
     - name: Run tests
       run: mix test
@@ -84,6 +70,4 @@ jobs:
     # Run coverage only on latest Elixir/OTP combination
     - name: Run tests with coverage
       if: matrix.elixir == '1.18.4' && matrix.otp == '28.0'
-      run: |
-        # Run with coverage but don't fail on threshold
-        mix test --cover || true
+      run: mix test --cover || true

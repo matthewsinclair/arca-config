@@ -8,14 +8,16 @@ on:
 
 env:
   MIX_ENV: test
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  ARCA_CONFIG_CONFIG_PATH: .arca_config
+  ARCA_CONFIG_CONFIG_FILE: config.json
 
 jobs:
   test:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
@@ -33,44 +35,19 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-mix-
     
-    - name: Setup environment
+    - name: Install hex and rebar
       run: |
-        # Create config directory and .env file BEFORE any compilation
-        mkdir -p config
-        
-        # Create .env file
-        cat > config/.env << 'EOF'
-        # CI environment variables
-        ARCA_CONFIG_CONFIG_PATH=.arca_config
-        ARCA_CONFIG_CONFIG_FILE=config.json
-        EOF
-        
-        # Create required test directories
-        mkdir -p ~/.arca_config
-        mkdir -p ./.arca_config
-        mkdir -p ~/.test_app
-        mkdir -p ./.test_app
-        
-        # Debug output
-        echo "=== Environment Setup ==="
-        echo "Current directory: $(pwd)"
-        echo "Contents of config directory:"
-        ls -la config/
-        echo "Contents of .env file:"
-        cat config/.env
+        mix local.hex --force
+        mix local.rebar --force
     
     - name: Install dependencies
-      run: |
-        mix local.rebar --force
-        mix local.hex --force
-        echo "=== Fetching dependencies ==="
-        mix deps.get || (echo "Failed to get deps, retrying..." && mix deps.get)
+      run: mix deps.get
     
     - name: Compile dependencies
       run: mix deps.compile
     
-    - name: Compile
-      run: mix compile
+    - name: Compile application
+      run: mix compile --warnings-as-errors
     
     - name: Run tests
       run: mix test

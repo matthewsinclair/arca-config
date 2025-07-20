@@ -9,13 +9,13 @@ defmodule Arca.Config.PhaseBasedTest do
       arca_path: System.get_env("ARCA_CONFIG_PATH"),
       arca_file: System.get_env("ARCA_CONFIG_FILE")
     }
-    
+
     # Clean up any existing environment variables
     System.delete_env("TEST_APP_CONFIG_PATH")
     System.delete_env("TEST_APP_CONFIG_FILE")
-    System.delete_env("ARCA_CONFIG_PATH") 
+    System.delete_env("ARCA_CONFIG_PATH")
     System.delete_env("ARCA_CONFIG_FILE")
-    
+
     # Clean up application config
     Application.delete_env(:arca_config, :config_domain)
 
@@ -34,7 +34,7 @@ defmodule Arca.Config.PhaseBasedTest do
           end
         end
       end
-      
+
       Application.delete_env(:arca_config, :config_domain)
       # Reset FileWatcher to dormant state after test
       send(Arca.Config.FileWatcher, {:reset_to_dormant, self()})
