@@ -31,15 +31,15 @@ defmodule ArcaConfig.MixProject do
       {:optimus, github: "matthewsinclair/arca-optimus", branch: "main", override: true},
       {:castore, "~> 1.0"},
       {:jason, "~> 1.4"},
-      {:tesla, "~> 1.5.1"},
+      {:tesla, "~> 1.15"},
       {:certifi, "~> 2.9"},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:owl, "~> 0.12"},
       {:ucwidth, "~> 0.2"},
-      {:pathex, "~> 2.5.1"},
+      {:pathex, "~> 2.6"},
       {:table_rex, "~> 4.1"},
       {:elixir_uuid, "~> 1.2"},
-      {:meck, "~> 0.9", only: :test},
+      {:meck, "~> 1.0", only: :test},
       {:dotenv, "~> 3.0", only: [:dev, :test], runtime: false}
     ]
   end
