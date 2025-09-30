@@ -7,7 +7,7 @@ defmodule Arca.Config do
 
   ## OTP Start Phase Integration
 
-  **IMPORTANT**: Starting from this version, Arca.Config uses OTP start phases for 
+  **IMPORTANT**: Starting from this version, Arca.Config uses OTP start phases for
   deterministic configuration loading. Parent applications MUST:
 
   1. Set the config domain in their `Application.start/2` callback:
@@ -55,6 +55,62 @@ defmodule Arca.Config do
       iex> config = Arca.Config.Map.new()
       iex> config["sample"]
       "value"
+
+  ## Runtime Config Location Switching
+
+  Arca.Config supports changing the configuration file location at runtime, which is
+  particularly useful for testing scenarios where different tests need different configurations:
+
+      # Switch to test configuration
+      {:ok, previous_location} = Arca.Config.switch_config_location(
+        path: "/tmp/test_config",
+        file: "test.json"
+      )
+
+      # Your test code here...
+
+      # Restore previous configuration
+      Arca.Config.switch_config_location(previous_location)
+
+  ### Example: Environment-based Configuration
+
+      # Development config
+      dev_config = %{
+        "environment" => "development",
+        "database" => %{"host" => "localhost", "port" => 5432},
+        "debug" => true
+      }
+
+      # Test config
+      test_config = %{
+        "environment" => "test",
+        "database" => %{"host" => "test-db", "port" => 5433},
+        "debug" => false
+      }
+
+      # Switch between environments
+      {:ok, _} = Arca.Config.switch_config_location(
+        path: "config/dev",
+        file: "config.json"
+      )
+
+      # In tests, switch to test config
+      {:ok, original} = Arca.Config.switch_config_location(
+        path: "config/test",
+        file: "test.json"
+      )
+
+      # Run tests...
+
+      # Restore original config
+      Arca.Config.switch_config_location(original)
+
+  The `switch_config_location/1` function handles:
+  - Stopping the current FileWatcher
+  - Clearing the configuration cache
+  - Loading configuration from the new location
+  - Restarting the FileWatcher on the new location
+  - Notifying all registered callbacks
   """
 
   use Application
@@ -366,6 +422,41 @@ defmodule Arca.Config do
   """
   @spec notify_callbacks() :: {:ok, :notified}
   def notify_callbacks(), do: Server.notify_callbacks()
+
+  @doc """
+  Switches the configuration file location at runtime.
+
+  This function allows you to change where Arca.Config reads and writes
+  configuration data. It performs the following operations:
+
+  1. Stops the current FileWatcher
+  2. Updates environment variables with new location
+  3. Clears the configuration cache
+  4. Loads configuration from the new location
+  5. Restarts the FileWatcher on the new location
+  6. Notifies all callbacks of the change
+
+  ## Parameters
+    - `opts`: Keyword list with optional `:path` and `:file` keys
+      - `:path` - The new configuration directory path
+      - `:file` - The new configuration filename
+
+  ## Returns
+    - `{:ok, previous_location}` with the previous path and file settings
+    - `{:error, reason}` if an error occurred
+
+  ## Examples
+      iex> {:ok, old_location} = Arca.Config.switch_config_location(
+      ...>   path: "/tmp/test_config",
+      ...>   file: "test.json"
+      ...> )
+      iex> # Restore previous location
+      iex> Arca.Config.switch_config_location(old_location)
+  """
+  @spec switch_config_location(keyword()) :: {:ok, keyword()} | {:error, term()}
+  def switch_config_location(opts \\ []) do
+    Server.switch_config_location(opts)
+  end
 
   @doc """
   Reloads the configuration from disk.

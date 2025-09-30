@@ -42,12 +42,30 @@ defmodule Arca.Config.FileWatcher do
   Starts file watching after configuration has been loaded.
   This should be called after the configuration is loaded during the start phase.
 
+  ## Parameters
+    - `config_file`: Optional specific config file path to watch. If not provided,
+      uses the path from `Arca.Config.Cfg.config_file/0`
+
   ## Returns
     - `:ok` if file watching was started successfully
   """
-  @spec start_watching() :: :ok
-  def start_watching do
-    GenServer.cast(__MODULE__, :start_watching)
+  @spec start_watching(String.t() | nil) :: :ok
+  def start_watching(config_file \\ nil) do
+    GenServer.cast(__MODULE__, {:start_watching, config_file})
+  end
+
+  @doc """
+  Stops file watching.
+
+  This function stops the FileWatcher from monitoring the configuration file.
+  It can be called when switching configuration locations or during shutdown.
+
+  ## Returns
+    - `:ok` when file watching has been stopped
+  """
+  @spec stop_watching() :: :ok
+  def stop_watching do
+    GenServer.call(__MODULE__, :stop_watching)
   end
 
   @doc """
@@ -87,19 +105,38 @@ defmodule Arca.Config.FileWatcher do
   @impl true
   def init(_) do
     # Start in dormant state - no file checking until configuration is loaded
-    {:ok, %{config_file: nil, last_info: nil, write_token: nil, watching: false}}
+    {:ok,
+     %{config_file: nil, last_info: nil, write_token: nil, watching: false, check_timer: nil}}
   end
 
   @impl true
-  def handle_cast(:start_watching, state) do
+  def handle_cast({:start_watching, config_file}, state) do
     # Configuration has been loaded, start watching
-    config_file = Arca.Config.Cfg.config_file()
-    file_info = if File.exists?(config_file), do: get_file_info(config_file), else: nil
+    file_to_watch = config_file || Arca.Config.Cfg.config_file()
+    file_info = if File.exists?(file_to_watch), do: get_file_info(file_to_watch), else: nil
+
+    # Cancel any existing timer
+    if state[:check_timer] do
+      Process.cancel_timer(state.check_timer)
+    end
 
     # Schedule first check
-    schedule_check()
+    timer = schedule_check()
 
-    {:noreply, %{state | config_file: config_file, last_info: file_info, watching: true}}
+    {:noreply,
+     %{
+       state
+       | config_file: file_to_watch,
+         last_info: file_info,
+         watching: true,
+         check_timer: timer
+     }}
+  end
+
+  # Legacy compatibility - handle old :start_watching atom
+  @impl true
+  def handle_cast(:start_watching, state) do
+    handle_cast({:start_watching, nil}, state)
   end
 
   @impl true
@@ -109,9 +146,22 @@ defmodule Arca.Config.FileWatcher do
   end
 
   @impl true
+  def handle_call(:stop_watching, _from, state) do
+    # Cancel any existing timer
+    if state[:check_timer] do
+      Process.cancel_timer(state.check_timer)
+    end
+
+    # Reset to dormant state
+    {:reply, :ok,
+     %{config_file: nil, last_info: nil, write_token: nil, watching: false, check_timer: nil}}
+  end
+
+  @impl true
   def handle_info({:reset_to_dormant, _pid}, _state) do
     # Reset to dormant state for testing
-    {:noreply, %{config_file: nil, last_info: nil, write_token: nil, watching: false}}
+    {:noreply,
+     %{config_file: nil, last_info: nil, write_token: nil, watching: false, check_timer: nil}}
   end
 
   @impl true
@@ -139,25 +189,27 @@ defmodule Arca.Config.FileWatcher do
         end
 
         # Update state with latest file info and path, and clear any registered token
+        # Schedule next check and store timer
+        timer = schedule_check()
+
         new_state = %{
           state
           | last_info: current_info,
             config_file: updated_path,
-            write_token: nil
+            write_token: nil,
+            check_timer: timer
         }
 
-        # Schedule next check
-        schedule_check()
         {:noreply, new_state}
       else
         # File doesn't exist - just schedule the next check
-        schedule_check()
-        {:noreply, state}
+        timer = schedule_check()
+        {:noreply, %{state | check_timer: timer}}
       end
     else
       # Not watching yet - just schedule the next check
-      schedule_check()
-      {:noreply, state}
+      timer = schedule_check()
+      {:noreply, %{state | check_timer: timer}}
     end
   end
 

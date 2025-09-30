@@ -330,6 +330,21 @@ defmodule Arca.Config.Server do
   end
 
   @doc """
+  Switches the configuration file location at runtime.
+
+  ## Parameters
+    - `opts`: Keyword list with optional `:path` and `:file` keys
+
+  ## Returns
+    - `{:ok, previous_location}` with the previous path and file settings
+    - `{:error, reason}` if an error occurred
+  """
+  @spec switch_config_location(keyword()) :: {:ok, keyword()} | {:error, term()}
+  def switch_config_location(opts \\ []) do
+    GenServer.call(__MODULE__, {:switch_config_location, opts})
+  end
+
+  @doc """
   Notifies all registered callback functions of an external configuration change.
   This is called by the FileWatcher when it detects changes to the config file.
 
@@ -514,6 +529,76 @@ defmodule Arca.Config.Server do
 
       {:error, reason} = error ->
         {:reply, error, Map.put(state, :load_error, reason)}
+    end
+  end
+
+  @impl true
+  def handle_call({:switch_config_location, opts}, _from, state) do
+    # Get the env var prefix
+    env_prefix = LegacyCfg.env_var_prefix()
+    path_var = "#{env_prefix}_CONFIG_PATH"
+    file_var = "#{env_prefix}_CONFIG_FILE"
+
+    # Store current location
+    previous_location = [
+      path: System.get_env(path_var),
+      file: System.get_env(file_var)
+    ]
+
+    # Stop the current file watcher
+    Arca.Config.FileWatcher.stop_watching()
+
+    # Update environment variables if options provided
+    if Keyword.has_key?(opts, :path) do
+      case Keyword.get(opts, :path) do
+        nil -> System.delete_env(path_var)
+        path -> System.put_env(path_var, path)
+      end
+    end
+
+    if Keyword.has_key?(opts, :file) do
+      case Keyword.get(opts, :file) do
+        nil -> System.delete_env(file_var)
+        file -> System.put_env(file_var, file)
+      end
+    end
+
+    # Clear the cache
+    Cache.clear()
+
+    # Load configuration from new location
+    case LegacyCfg.load() do
+      {:ok, config} ->
+        # Rebuild cache with new config
+        build_cache(config)
+
+        # Restart file watcher with new location
+        Arca.Config.FileWatcher.start_watching()
+
+        # Notify all callbacks of the change
+        notify_callbacks()
+
+        # Return previous location for restoration
+        {:reply, {:ok, previous_location}, %{state | config: config, loaded: true}}
+
+      {:error, reason} ->
+        # On error, restore previous environment variables
+        if previous_location[:path] do
+          System.put_env(path_var, previous_location[:path])
+        else
+          System.delete_env(path_var)
+        end
+
+        if previous_location[:file] do
+          System.put_env(file_var, previous_location[:file])
+        else
+          System.delete_env(file_var)
+        end
+
+        # Restart file watcher with original location
+        Arca.Config.FileWatcher.start_watching()
+
+        {:reply, {:error, reason}, state}
     end
   end
 
