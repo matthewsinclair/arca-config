@@ -6,6 +6,7 @@ defmodule ArcaConfig.MixProject do
       app: :arca_config,
       version: "0.2.0",
       elixir: "~> 1.18",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       escript: [main_module: Arca.Config, path: "_build/escript/arca_config", name: "arca_config"],
@@ -15,6 +16,9 @@ defmodule ArcaConfig.MixProject do
       ]
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   def application do
     [
